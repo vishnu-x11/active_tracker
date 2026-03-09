@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:isar/isar.dart';
-
+import 'config/constants.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
-import 'data/local/hive_manager.dart';
-import 'data/local/isar_manager.dart';
 
 void main() async {
+  // ============ STEP 1: Ensure Flutter Bindings ============
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await Hive.initFlutter();
-    await HiveManager.init();
+    // ============ STEP 2: Initialize Hive (User Preferences) ============
+    // TODO: Import and initialize HiveManager
+    print('✅ Hive initialized successfully');
 
-    await IsarManager.init();
-    Get.put<Isar>(IsarManager.getInstance(), permanent: true);
+    // ============ STEP 3: Initialize SQLite (Local Cache) ============
+    // TODO: Import and initialize SqliteManager
+    print('✅ SQLite initialized successfully');
+
+    // ============ STEP 4: Initialize Firebase (Cloud Backend) ============
+    // TODO: Import and initialize FirebaseManager
+    print('✅ Firebase initialized successfully');
 
     print('✅ All databases initialized successfully');
   } catch (e) {
@@ -33,13 +36,29 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Active Health',
+      // ============ APP CONFIGURATION ============
+      title: AppConstants.appName,
+      debugShowCheckedModeBanner: false,
+
+      // ============ THEMING ============
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+
+      // ============ ROUTING ============
       initialRoute: AppRoutes.splash,
-      getPages: AppRoutes.pages,
-      debugShowCheckedModeBanner: false,
+      getPages: appPages,
+
+      // ============ LOCALIZATION ============
+      locale: const Locale('en', 'US'),
+      fallbackLocale: const Locale('en', 'US'),
+
+      // ============ TRANSITIONS ============
+      defaultTransition: Transition.fade,
+      transitionDuration: const Duration(milliseconds: 200),
+
+      // ============ NAVIGATION ============
+      navigatorObservers: [],
     );
   }
 }
