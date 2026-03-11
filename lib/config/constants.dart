@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class AppConstants {
   // ============ APP INFO ============
   static const String appName = 'Active Health';

@@ -1,5 +1,10 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'user_profile_model.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class UserProfileModelAdapter extends TypeAdapter<UserProfileModel> {
   @override
@@ -12,39 +17,54 @@ class UserProfileModelAdapter extends TypeAdapter<UserProfileModel> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return UserProfileModel(
-      name: fields[0] as String,
-      weight: fields[1] as double,
-      height: fields[2] as double,
-      age: fields[3] as int,
-      gender: fields[4] as String,
-      fitnessGoal: fields[5] as String,
-      kcal: fields[6] as double,
-      createdAt: fields[7] as DateTime,
-      updatedAt: fields[8] as DateTime?,
+      userId: fields[0] as String,
+      name: fields[1] as String,
+      age: fields[2] as int,
+      weight: fields[3] as double,
+      height: fields[4] as double,
+      goalType: fields[5] as int,
+      intensityLevel: fields[6] as int,
+      calorieGoal: fields[7] as double,
+      proteinGoal: fields[8] as double,
+      fatGoal: fields[9] as double,
+      carbsGoal: fields[10] as double,
+      waterGoalMl: fields[11] as int,
+      createdAt: fields[12] as DateTime,
+      updatedAt: fields[13] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserProfileModel obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(14)
       ..writeByte(0)
-      ..write(obj.name)
+      ..write(obj.userId)
       ..writeByte(1)
-      ..write(obj.weight)
+      ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.height)
-      ..writeByte(3)
       ..write(obj.age)
+      ..writeByte(3)
+      ..write(obj.weight)
       ..writeByte(4)
-      ..write(obj.gender)
+      ..write(obj.height)
       ..writeByte(5)
-      ..write(obj.fitnessGoal)
+      ..write(obj.goalType)
       ..writeByte(6)
-      ..write(obj.kcal)
+      ..write(obj.intensityLevel)
       ..writeByte(7)
-      ..write(obj.createdAt)
+      ..write(obj.calorieGoal)
       ..writeByte(8)
+      ..write(obj.proteinGoal)
+      ..writeByte(9)
+      ..write(obj.fatGoal)
+      ..writeByte(10)
+      ..write(obj.carbsGoal)
+      ..writeByte(11)
+      ..write(obj.waterGoalMl)
+      ..writeByte(12)
+      ..write(obj.createdAt)
+      ..writeByte(13)
       ..write(obj.updatedAt);
   }
 
