@@ -1,5 +1,10 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
 
 part of 'note_model.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
 
 class NoteModelAdapter extends TypeAdapter<NoteModel> {
   @override
@@ -12,28 +17,37 @@ class NoteModelAdapter extends TypeAdapter<NoteModel> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return NoteModel(
-      dateKey: fields[0] as String,
-      noteText: fields[1] as String,
-      mood: fields[2] as String,
-      fatigueLevel: fields[3] as int,
-      timestamp: fields[4] as DateTime,
+      userId: fields[0] as String,
+      dateKey: fields[1] as String,
+      content: fields[2] as String,
+      mood: fields[3] as String?,
+      tags: fields[4] as String?,
+      timestamp: fields[5] as DateTime,
+      createdAt: fields[6] as DateTime,
+      updatedAt: fields[7] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, NoteModel obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(8)
       ..writeByte(0)
-      ..write(obj.dateKey)
+      ..write(obj.userId)
       ..writeByte(1)
-      ..write(obj.noteText)
+      ..write(obj.dateKey)
       ..writeByte(2)
-      ..write(obj.mood)
+      ..write(obj.content)
       ..writeByte(3)
-      ..write(obj.fatigueLevel)
+      ..write(obj.mood)
       ..writeByte(4)
-      ..write(obj.timestamp);
+      ..write(obj.tags)
+      ..writeByte(5)
+      ..write(obj.timestamp)
+      ..writeByte(6)
+      ..write(obj.createdAt)
+      ..writeByte(7)
+      ..write(obj.updatedAt);
   }
 
   @override

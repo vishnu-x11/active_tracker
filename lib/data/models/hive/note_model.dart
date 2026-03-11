@@ -2,44 +2,91 @@ import 'package:hive/hive.dart';
 
 part 'note_model.g.dart';
 
+/// Daily notes/journal stored in Hive (non-synced)
+/// TypeId: 4 - CRITICAL: Never change or reuse this ID
 @HiveType(typeId: 4)
-class NoteModel {
+class NoteModel extends HiveObject {
   @HiveField(0)
-  final String dateKey; /// YYYY-MM-DD
+  final String userId;
 
   @HiveField(1)
-  final String noteText;
+  final String dateKey; // Format: "2025-02-21"
 
   @HiveField(2)
-  final String mood; /// 'happy', 'neutral', 'sad'
+  final String content;
 
   @HiveField(3)
-  final int fatigueLevel; /// 1-10
+  final String? mood; // "happy", "neutral", "sad"
 
   @HiveField(4)
+  final String? tags; // Comma-separated tags
+
+  @HiveField(5)
   final DateTime timestamp;
 
+  @HiveField(6)
+  final DateTime createdAt;
+
+  @HiveField(7)
+  final DateTime updatedAt;
+
   NoteModel({
+    required this.userId,
     required this.dateKey,
-    required this.noteText,
-    required this.mood,
-    required this.fatigueLevel,
+    required this.content,
+    this.mood,
+    this.tags,
     required this.timestamp,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
+  /// Create a copy of this model with updated fields
   NoteModel copyWith({
+    String? userId,
     String? dateKey,
-    String? noteText,
+    String? content,
     String? mood,
-    int? fatigueLevel,
+    String? tags,
     DateTime? timestamp,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return NoteModel(
+      userId: userId ?? this.userId,
       dateKey: dateKey ?? this.dateKey,
-      noteText: noteText ?? this.noteText,
+      content: content ?? this.content,
       mood: mood ?? this.mood,
-      fatigueLevel: fatigueLevel ?? this.fatigueLevel,
+      tags: tags ?? this.tags,
       timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
+  }
+
+  /// Get mood emoji
+  String getMoodEmoji() {
+    switch (mood) {
+      case 'happy':
+        return '😊';
+      case 'sad':
+        return '😢';
+      case 'neutral':
+      default:
+        return '😐';
+    }
+  }
+
+  /// Get tags as list
+  List<String> getTagsList() {
+    if (tags == null || tags!.isEmpty) {
+      return [];
+    }
+    return tags!.split(',').map((e) => e.trim()).toList();
+  }
+
+  @override
+  String toString() {
+    return 'NoteModel(userId: $userId, dateKey: $dateKey, mood: $mood, content: ${content.substring(0, 30)}...)';
   }
 }
