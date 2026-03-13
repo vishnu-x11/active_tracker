@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'config/constants.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
+import 'data/local/hive_manager.dart';
 
 void main() async {
   // ============ STEP 1: Ensure Flutter Bindings ============
@@ -10,7 +11,7 @@ void main() async {
 
   try {
     // ============ STEP 2: Initialize Hive (User Preferences) ============
-    // TODO: Import and initialize HiveManager
+    await HiveManager.init();
     print('✅ Hive initialized successfully');
 
     // ============ STEP 3: Initialize SQLite (Local Cache) ============
@@ -24,7 +25,6 @@ void main() async {
     print('✅ All databases initialized successfully');
   } catch (e) {
     print('❌ Database initialization failed: $e');
-    rethrow;
   }
 
   runApp(const MyApp());
