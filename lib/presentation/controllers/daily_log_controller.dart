@@ -133,6 +133,11 @@ class DailyLogController extends GetxController {
     selectedDate.value = DateTime.now();
   }
 
+  /// Set a specific date
+  void setSelectedDate(DateTime date) {
+    selectedDate.value = date;
+  }
+
   /// Get formatted date
   String getSelectedDateString() {
     final dateKey = DateUtils.getDateKey(date: selectedDate.value);

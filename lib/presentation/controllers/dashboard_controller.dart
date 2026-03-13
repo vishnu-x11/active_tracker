@@ -1,13 +1,12 @@
 import 'dart:async';
-
 import 'package:get/get.dart';
 
-/// Manages dashboard state and daily goal progress
+/// Manages dashboard state, daily goal progress, and sync status
 class DashboardController extends GetxController {
-  // ============ OBSERVABLE STATE ============
+  // ============ OBSERVABLE GOALS & PROGRESS ============
   final today = DateTime.now().obs;
 
-  // Goals
+  // Goal values
   final caloriesGoal = 2000.0.obs;
   final proteinGoal = 150.0.obs;
   final waterGoal = 2500.0.obs;
@@ -18,6 +17,7 @@ class DashboardController extends GetxController {
   final todayProtein = 0.0.obs;
   final todayWater = 0.0.obs;
   final todayWorkoutMinutes = 0.obs;
+  final todayWeight = 0.0.obs; // ✅ Added for dashboard card
 
   // Progress percentages (0.0 to 1.0)
   final caloriesProgress = 0.0.obs;
@@ -25,9 +25,17 @@ class DashboardController extends GetxController {
   final waterProgress = 0.0.obs;
   final workoutProgress = 0.0.obs;
 
-  // UI state
+  // ============ SYNC STATUS ============
+  final isOnline = true.obs; // ✅ Added
+  final isSyncing = false.obs; // ✅ Added
+  final lastSyncTime = Rx<DateTime?>(null); // ✅ Added
+
+  // ============ UI STATE ============
   final isLoading = false.obs;
   final errorMessage = ''.obs;
+
+  // ============ TIMERS ============
+  Timer? _refreshTimer;
 
   // ============ LIFECYCLE ============
   @override
@@ -37,8 +45,7 @@ class DashboardController extends GetxController {
     loadDashboardData();
 
     // Refresh dashboard every minute
-
-    Timer.periodic(const Duration(minutes: 1), (_) {
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!isLoading.value) {
         loadDashboardData();
       }
@@ -53,11 +60,12 @@ class DashboardController extends GetxController {
 
   @override
   void onClose() {
+    _refreshTimer?.cancel(); // ✅ Cancel timer on close
     super.onClose();
     print('✅ DashboardController closed');
   }
 
-  // ============ BUSINESS LOGIC ============
+  // ============ LOAD DATA ============
 
   /// Load all dashboard data
   Future<void> loadDashboardData() async {
@@ -73,7 +81,11 @@ class DashboardController extends GetxController {
       // 5. Load goals
 
       // For now, simulating loaded data
+      // In production, these would come from repositories
       _calculateProgress();
+
+      // Simulate update
+      lastSyncTime.value = DateTime.now();
 
       print('✅ Dashboard data loaded');
     } catch (e) {
@@ -89,6 +101,8 @@ class DashboardController extends GetxController {
     await loadDashboardData();
   }
 
+  // ============ PROGRESS CALCULATION ============
+
   /// Calculate progress percentages
   void _calculateProgress() {
     caloriesProgress.value = _clampProgress(todayCalories.value / caloriesGoal.value);
@@ -102,9 +116,9 @@ class DashboardController extends GetxController {
     return progress.clamp(0.0, 1.0);
   }
 
-  // ============ HELPER METHODS ============
+  // ============ GOAL CHECKING ============
 
-  /// Check if goal is met (90% or more)
+  /// Check if goal is met (90% or more for calories/protein, 100% for water/workout)
   bool isGoalMet(String goal) {
     switch (goal) {
       case 'calories':
@@ -129,6 +143,8 @@ class DashboardController extends GetxController {
     if (isGoalMet('workout')) count++;
     return count;
   }
+
+  // ============ GOAL PROGRESS STRINGS ============
 
   /// Get goal progress string
   String getGoalProgressString(String goal) {
@@ -162,7 +178,7 @@ class DashboardController extends GetxController {
     }
   }
 
-  /// Is goal met string
+  /// Get goal status string
   String getGoalStatusString(String goal) {
     if (isGoalMet(goal)) {
       return '✅ Goal met!';
@@ -201,5 +217,64 @@ class DashboardController extends GetxController {
       default:
         return 'Keep going! 💪';
     }
+  }
+
+  // ============ SYNC STATUS HELPERS ============
+
+  /// Update sync status
+  void updateSyncStatus({required bool isOnlineNow, required bool syncing}) {
+    isOnline.value = isOnlineNow;
+    isSyncing.value = syncing;
+    if (!syncing && isOnlineNow) {
+      lastSyncTime.value = DateTime.now();
+    }
+  }
+
+  /// Mark as online
+  void markAsOnline() {
+    isOnline.value = true;
+  }
+
+  /// Mark as offline
+  void markAsOffline() {
+    isOnline.value = false;
+  }
+
+  /// Start sync
+  void startSync() {
+    isSyncing.value = true;
+  }
+
+  /// End sync
+  void endSync() {
+    isSyncing.value = false;
+    lastSyncTime.value = DateTime.now();
+  }
+
+  // ============ NAVIGATION ============
+
+  /// Navigate to nutrition screen
+  void navigateToNutrition() {
+    Get.toNamed('/nutrition');
+  }
+
+  /// Navigate to training screen
+  void navigateToTraining() {
+    Get.toNamed('/training');
+  }
+
+  /// Navigate to hydration screen
+  void navigateToHydration() {
+    Get.toNamed('/hydration');
+  }
+
+  /// Navigate to BMI screen
+  void navigateToBmi() {
+    Get.toNamed('/bmi');
+  }
+
+  /// Navigate to settings screen
+  void navigateToSettings() {
+    Get.toNamed('/settings');
   }
 }
