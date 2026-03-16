@@ -525,4 +525,5 @@ class TrainingScreen extends StatelessWidget {
       ),
     );
   }
+
 }
