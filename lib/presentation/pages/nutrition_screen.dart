@@ -162,31 +162,23 @@ class NutritionScreen extends StatelessWidget {
               Obx(() {
                 if (controller.foodSuggestions.isEmpty) return const SizedBox.shrink();
                 
-                return Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: controller.foodSuggestions.length,
-                    itemBuilder: (context, index) {
-                      final item = controller.foodSuggestions[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(item.name),
-                        subtitle: Text('${item.calories} kcal | P: ${item.protein}g'),
-                        onTap: () {
-                          // Auto-fill fields
-                          nameController.text = item.name;
-                          caloriesController.text = item.calories.toString();
-                          proteinController.text = item.protein.toString();
-                          fatController.text = item.fat.toString();
-                          carbsController.text = item.carbs.toString();
-                          
-                          // Clear suggestions
-                          controller.clearSuggestions();
-                        },
-                      );
+                return Column(
+                  children: controller.foodSuggestions.map((item) => ListTile(
+                    dense: true,
+                    title: Text(item.name),
+                    subtitle: Text('${item.calories} kcal | P: ${item.protein}g'),
+                    onTap: () {
+                      // Auto-fill fields
+                      nameController.text = item.name;
+                      caloriesController.text = item.calories.toString();
+                      proteinController.text = item.protein.toString();
+                      fatController.text = item.fat.toString();
+                      carbsController.text = item.carbs.toString();
+                      
+                      // Clear suggestions
+                      controller.clearSuggestions();
                     },
-                  ),
+                  )).toList(),
                 );
               }),
               

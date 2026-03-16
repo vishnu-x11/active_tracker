@@ -131,31 +131,76 @@ class TrainingScreen extends StatelessWidget {
                               )
                             else
                               ...controller.getGroupedExercises().entries.map((entry) {
+                                final category = entry.key;
+                                final exercises = entry.value;
+                                
+                                IconData getCategoryIcon(String category) {
+                                  switch (category.toLowerCase()) {
+                                    case 'chest': return Icons.fitness_center;
+                                    case 'back': return Icons.straighten;
+                                    case 'shoulder': return Icons.accessibility;
+                                    case 'biceps':
+                                    case 'triceps':
+                                    case 'fore arms': return Icons.legend_toggle;
+                                    case 'leg': return Icons.directions_walk;
+                                    case 'abs': return Icons.grid_view;
+                                    case 'pushups': return Icons.upload;
+                                    case 'pullups': return Icons.download;
+                                    case 'cardio': return Icons.favorite;
+                                    default: return Icons.sports_gymnastics;
+                                  }
+                                }
+
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      child: Text(
-                                        entry.key.toUpperCase(),
-                                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          letterSpacing: 1.2,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      margin: const EdgeInsets.only(top: 16, bottom: 8),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(AppRadius.md),
+                                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(getCategoryIcon(category), size: 18, color: Theme.of(context).colorScheme.primary),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            category.toUpperCase(),
+                                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                              color: Theme.of(context).colorScheme.primary,
+                                              letterSpacing: 1.2,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    ...entry.value.map((ex) => Card(
+                                    ...exercises.map((ex) => Card(
                                       child: ListTile(
-                                        leading: const Icon(Icons.sports_gymnastics),
+                                        leading: CircleAvatar(
+                                          backgroundColor: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                                          child: Icon(getCategoryIcon(category), size: 16, color: Theme.of(context).colorScheme.secondary),
+                                        ),
                                         title: Text(ex.exerciseType),
                                         subtitle: Text('${ex.reps} reps × ${ex.sets} sets'),
                                         trailing: ex.weight != null
-                                            ? Text('${ex.weight!.toStringAsFixed(1)} kg')
+                                            ? Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  '${ex.weight!.toStringAsFixed(1)} kg',
+                                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                                                ),
+                                              )
                                             : null,
                                       ),
                                     )),
-                                    const SizedBox(height: 8),
                                   ],
                                 );
                               }),
@@ -268,12 +313,15 @@ class TrainingScreen extends StatelessWidget {
     final repsCtrl = TextEditingController(text: '10');
     final setsCtrl = TextEditingController(text: '3');
     final weightCtrl = TextEditingController();
+    final searchCtrl = TextEditingController();
 
     // Reset controller state
     controller.clearSelection();
+    controller.clearSuggestions();
 
     Get.dialog(
       Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
         child: Container(
           padding: const EdgeInsets.all(AppPadding.md),
           constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
@@ -281,59 +329,141 @@ class TrainingScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Select Exercise', style: Theme.of(context).textTheme.titleLarge),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Select Exercise', style: Theme.of(context).textTheme.titleLarge),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               TextField(
-                decoration: const InputDecoration(
+                controller: searchCtrl,
+                decoration: InputDecoration(
                   labelText: 'Search exercises...',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      searchCtrl.clear();
+                      controller.clearSuggestions();
+                    },
+                  ),
                 ),
                 onChanged: (value) => controller.searchExercises(value),
               ),
               const SizedBox(height: 16),
               Expanded(
                 child: Obx(() {
-                  // If searching, show suggestions, else show all categorized by groups
-                  // For simplicity, let's just show all library items if search is empty
-                  final list = controller.exerciseSuggestions;
-                  
-                  if (list.isEmpty && !controller.isSearching.value) {
-                    // Show a message or a default list
-                    return const Center(child: Text('Search for an exercise to log'));
+                  // PRIORITY 1: Search results
+                  if (searchCtrl.text.isNotEmpty) {
+                    if (controller.isSearching.value) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (controller.exerciseSuggestions.isEmpty) {
+                      return const Center(child: Text('No exercises found'));
+                    }
+                    return ListView.builder(
+                      itemCount: controller.exerciseSuggestions.length,
+                      itemBuilder: (context, index) => _buildExerciseTile(
+                        context,
+                        controller,
+                        controller.exerciseSuggestions[index],
+                        repsCtrl,
+                        setsCtrl,
+                        weightCtrl,
+                      ),
+                    );
                   }
 
-                  return ListView.builder(
-                    itemCount: list.length,
+                  // PRIORITY 2: Exercises within a selected category
+                  if (controller.selectedCategory.isNotEmpty) {
+                    return Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.arrow_back),
+                          title: Text('Back to Categories', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                          onTap: () => controller.clearSelection(),
+                        ),
+                        const Divider(),
+                        Expanded(
+                          child: controller.isLoading.value 
+                            ? const Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                                itemCount: controller.exercisesByCategory.length,
+                                itemBuilder: (context, index) => _buildExerciseTile(
+                                  context,
+                                  controller,
+                                  controller.exercisesByCategory[index],
+                                  repsCtrl,
+                                  setsCtrl,
+                                  weightCtrl,
+                                ),
+                              ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  // PRIORITY 3: Category Grid
+                  return GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: controller.categories.length,
                     itemBuilder: (context, index) {
-                      final item = list[index];
-                      return ListTile(
-                        title: Text(item.name),
-                        trailing: Text(
-                          item.category,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
+                      final category = controller.categories[index];
+                      return InkWell(
+                        onTap: () => controller.selectCategory(category),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ),
-                        onTap: () {
-                          _showDetailsForm(context, controller, item, repsCtrl, setsCtrl, weightCtrl);
-                        },
                       );
                     },
                   );
                 }),
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  controller.clearSuggestions();
-                  Get.back();
-                },
-                child: const Text('Cancel'),
-              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildExerciseTile(
+    BuildContext context,
+    TrainingController controller,
+    ExerciseDefinition item,
+    TextEditingController repsCtrl,
+    TextEditingController setsCtrl,
+    TextEditingController weightCtrl,
+  ) {
+    return ListTile(
+      title: Text(item.name),
+      subtitle: Text(item.category),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        _showDetailsForm(context, controller, item, repsCtrl, setsCtrl, weightCtrl);
+      },
     );
   }
 
