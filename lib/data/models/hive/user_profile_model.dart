@@ -48,6 +48,9 @@ class UserProfileModel extends HiveObject {
   @HiveField(13)
   final DateTime updatedAt;
 
+  @HiveField(14)
+  final double burnedCalorieGoal;
+
   UserProfileModel({
     required this.userId,
     required this.name,
@@ -63,6 +66,7 @@ class UserProfileModel extends HiveObject {
     required this.waterGoalMl,
     required this.createdAt,
     required this.updatedAt,
+    this.burnedCalorieGoal = 500.0,
   });
 
   /// Create a copy of this model with updated fields
@@ -79,6 +83,7 @@ class UserProfileModel extends HiveObject {
     double? fatGoal,
     double? carbsGoal,
     int? waterGoalMl,
+    double? burnedCalorieGoal,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -95,8 +100,51 @@ class UserProfileModel extends HiveObject {
       fatGoal: fatGoal ?? this.fatGoal,
       carbsGoal: carbsGoal ?? this.carbsGoal,
       waterGoalMl: waterGoalMl ?? this.waterGoalMl,
+      burnedCalorieGoal: burnedCalorieGoal ?? this.burnedCalorieGoal,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  /// Convert model to map for SQLite/Sync
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'name': name,
+      'age': age,
+      'weight': weight,
+      'height': height,
+      'goalType': goalType,
+      'intensityLevel': intensityLevel,
+      'calorieGoal': calorieGoal,
+      'proteinGoal': proteinGoal,
+      'fatGoal': fatGoal,
+      'carbsGoal': carbsGoal,
+      'waterGoalMl': waterGoalMl,
+      'burnedCalorieGoal': burnedCalorieGoal,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  /// Create model from map
+  factory UserProfileModel.fromMap(Map<String, dynamic> map) {
+    return UserProfileModel(
+      userId: map['userId'] as String,
+      name: map['name'] as String,
+      age: map['age'] as int,
+      weight: (map['weight'] as num).toDouble(),
+      height: (map['height'] as num).toDouble(),
+      goalType: map['goalType'] as int,
+      intensityLevel: map['intensityLevel'] as int,
+      calorieGoal: (map['calorieGoal'] as num).toDouble(),
+      proteinGoal: (map['proteinGoal'] as num).toDouble(),
+      fatGoal: (map['fatGoal'] as num).toDouble(),
+      carbsGoal: (map['carbsGoal'] as num).toDouble(),
+      waterGoalMl: map['waterGoalMl'] as int,
+      burnedCalorieGoal: (map['burnedCalorieGoal'] as num?)?.toDouble() ?? 500.0,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
   }
 

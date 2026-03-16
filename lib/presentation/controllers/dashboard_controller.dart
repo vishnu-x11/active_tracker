@@ -1,8 +1,15 @@
 import 'dart:async';
 import 'package:get/get.dart';
 
+import 'package:active_tracker/domain/repositories/repositories.dart';
+import 'package:active_tracker/utils/date_utils.dart';
+
 /// Manages dashboard state, daily goal progress, and sync status
 class DashboardController extends GetxController {
+  // ============ DEPENDENCIES ============
+  final DailyLogRepository _dailyLogRepository;
+  final OnboardingRepository _onboardingRepository;
+
   // ============ OBSERVABLE GOALS & PROGRESS ============
   final today = DateTime.now().obs;
 
@@ -11,6 +18,7 @@ class DashboardController extends GetxController {
   final proteinGoal = 150.0.obs;
   final waterGoal = 2500.0.obs;
   final workoutGoal = 30.obs;
+  final burnedCalorieGoal = 500.0.obs;
 
   // Today's progress
   final todayCalories = 0.0.obs;
@@ -18,12 +26,17 @@ class DashboardController extends GetxController {
   final todayWater = 0.0.obs;
   final todayWorkoutMinutes = 0.obs;
   final todayWeight = 0.0.obs; // ✅ Added for dashboard card
+  final todayBurnedCalories = 0.0.obs;
 
   // Progress percentages (0.0 to 1.0)
   final caloriesProgress = 0.0.obs;
   final proteinProgress = 0.0.obs;
   final waterProgress = 0.0.obs;
   final workoutProgress = 0.0.obs;
+  final caloriesBurnedProgress = 0.0.obs;
+
+  // ============ CONSTRUCTOR ============
+  DashboardController(this._dailyLogRepository, this._onboardingRepository);
 
   // ============ SYNC STATUS ============
   final isOnline = true.obs; // ✅ Added
@@ -73,21 +86,33 @@ class DashboardController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
 
-      // TODO: Load data from repositories
-      // 1. Load nutrition progress
-      // 2. Load hydration progress
-      // 3. Load training progress
-      // 4. Load BMI/weight progress
-      // 5. Load goals
+      final dateKey = DateUtils.getDateKey(date: today.value);
 
-      // For now, simulating loaded data
-      // In production, these would come from repositories
+      // 1. Load Goals from Profile
+      final profile = await _onboardingRepository.getUserProfileSync();
+      if (profile != null) {
+        caloriesGoal.value = profile.calorieGoal;
+        proteinGoal.value = profile.proteinGoal;
+        waterGoal.value = profile.waterGoalMl.toDouble();
+        burnedCalorieGoal.value = profile.burnedCalorieGoal;
+      }
+
+      // 2. Load Progress from Daily Summary
+      final summary = await _dailyLogRepository.getDailyLogSummaryForDate(dateKey);
+      if (summary != null) {
+        todayCalories.value = summary.totalCalories;
+        todayProtein.value = summary.totalProtein;
+        todayWater.value = summary.totalWater;
+        todayWorkoutMinutes.value = summary.workoutMinutes;
+        todayBurnedCalories.value = summary.totalCaloriesBurned;
+        
+        // Load latest weight if available in summary (assuming most recent log)
+        // or keep as is if we don't have it in summary yet
+      }
+
       _calculateProgress();
-
-      // Simulate update
       lastSyncTime.value = DateTime.now();
-
-      print('✅ Dashboard data loaded');
+      print('✅ Dashboard data loaded for $dateKey');
     } catch (e) {
       errorMessage.value = 'Failed to load dashboard: $e';
       print('❌ Dashboard error: $e');
@@ -109,6 +134,7 @@ class DashboardController extends GetxController {
     proteinProgress.value = _clampProgress(todayProtein.value / proteinGoal.value);
     waterProgress.value = _clampProgress(todayWater.value / waterGoal.value);
     workoutProgress.value = _clampProgress(todayWorkoutMinutes.value / workoutGoal.value);
+    caloriesBurnedProgress.value = _clampProgress(todayBurnedCalories.value / burnedCalorieGoal.value);
   }
 
   /// Clamp progress between 0 and 1
@@ -129,6 +155,8 @@ class DashboardController extends GetxController {
         return waterProgress.value >= 1.0;
       case 'workout':
         return workoutProgress.value >= 1.0;
+      case 'burned':
+        return caloriesBurnedProgress.value >= 1.0;
       default:
         return false;
     }
@@ -141,6 +169,7 @@ class DashboardController extends GetxController {
     if (isGoalMet('protein')) count++;
     if (isGoalMet('water')) count++;
     if (isGoalMet('workout')) count++;
+    if (isGoalMet('burned')) count++;
     return count;
   }
 
@@ -157,6 +186,8 @@ class DashboardController extends GetxController {
         return '${todayWater.value.toStringAsFixed(0)} / ${waterGoal.value.toStringAsFixed(0)} ml';
       case 'workout':
         return '${todayWorkoutMinutes.value} / ${workoutGoal.value} min';
+      case 'burned':
+        return '${todayBurnedCalories.value.toStringAsFixed(0)} / ${burnedCalorieGoal.value.toStringAsFixed(0)} kcal';
       default:
         return '';
     }
@@ -173,6 +204,8 @@ class DashboardController extends GetxController {
         return (waterGoal.value - todayWater.value).clamp(0, double.infinity);
       case 'workout':
         return (workoutGoal.value - todayWorkoutMinutes.value).clamp(0, double.infinity);
+      case 'burned':
+        return (burnedCalorieGoal.value - todayBurnedCalories.value).clamp(0, double.infinity);
       default:
         return 0;
     }
@@ -194,6 +227,8 @@ class DashboardController extends GetxController {
           return '${remaining.toStringAsFixed(1)}g left';
         case 'workout':
           return '${remaining.toStringAsFixed(0)} min left';
+        case 'burned':
+          return '${remaining.toStringAsFixed(0)} kcal left';
         default:
           return '';
       }

@@ -150,7 +150,8 @@ class DailyLogController extends GetxController {
   }
 
   /// Get goals met string
-  String getGoalsMetString() => '${getGoalsMetCount()}/4 goals met';
+  /// Get goals met string
+  String getGoalsMetString() => '${getGoalsMetCount()}/5 goals met';
 
   /// Check if specific goal is met
   bool isGoalMet(String goal) {
@@ -212,11 +213,11 @@ class DailyLogController extends GetxController {
         return '⏳ Start working on your goals!';
       case 1:
         return '🔥 Great start! Keep going!';
-      case 2:
-        return '💪 Halfway there! Finish strong!';
       case 3:
-        return '🎯 Almost perfect! One more to go!';
+        return '💪 Halfway there! Finish strong!';
       case 4:
+        return '🎯 Almost perfect! One more to go!';
+      case 5:
         return '🏆 All goals met! Excellent work!';
       default:
         return 'Keep up the good work!';
@@ -228,11 +229,11 @@ class DailyLogController extends GetxController {
     final metCount = getGoalsMetCount();
     final mood = this.mood.value;
 
-    if (metCount == 4 && mood.toLowerCase().contains('good')) {
+    if (metCount == 5 && mood.toLowerCase().contains('good')) {
       return '🌟 Perfect day! You\'ve exceeded expectations!';
-    } else if (metCount == 4) {
+    } else if (metCount == 5) {
       return '🎉 All goals met! Great performance!';
-    } else if (metCount >= 3) {
+    } else if (metCount >= 4) {
       return '✨ Excellent progress today!';
     } else if (metCount >= 2) {
       return '💪 Good effort! Keep pushing!';

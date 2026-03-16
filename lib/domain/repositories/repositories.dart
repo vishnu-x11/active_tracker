@@ -8,11 +8,17 @@ import 'package:active_tracker/data/models/sqlite/daily_log_summary.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
+import 'package:active_tracker/data/models/sqlite/food_item.dart';
+import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
+import 'package:active_tracker/data/models/hive/user_profile_model.dart';
 
 /// Manages user onboarding flow and initial setup
 abstract class OnboardingRepository {
   /// Get current user profile
   Future<void> getUserProfile();
+
+  /// Get current user profile synchronously
+  UserProfileModel? getUserProfileSync();
 
   /// Save user profile during onboarding
   Future<void> saveUserProfile({
@@ -23,7 +29,14 @@ abstract class OnboardingRepository {
     required double height,
     required int goalType,
     required int intensityLevel,
+    required double burnedCalorieGoal,
   });
+
+  /// Sync user profile from cloud to local Hive
+  Future<bool> syncUserProfileFromCloud(String userId);
+
+  /// Clear user profile (for logout)
+  Future<void> clearUserProfile();
 
   /// Update user goals and preferences
   Future<void> updateUserGoals({
@@ -61,6 +74,12 @@ abstract class NutritionRepository {
 
   /// Get food logs for date range
   Future<List<FoodLog>> getFoodLogsForDateRange(String startDate, String endDate);
+
+  /// Search for food items in library
+  Future<List<FoodItem>> searchFoodItems(String query);
+
+  /// Get food item by name
+  Future<FoodItem?> getFoodItemByName(String name);
 }
 
 // ============ 3. TRAINING REPOSITORY ============
@@ -95,6 +114,21 @@ abstract class TrainingRepository {
 
   /// Delete exercise
   Future<void> deleteExercise(int id);
+
+  /// Search for exercise definitions
+  Future<List<ExerciseDefinition>> searchExercises(String query);
+
+  /// Get exercise definition by name
+  Future<ExerciseDefinition?> getExerciseDefinitionByName(String name);
+
+  /// Get training volume for date
+  Future<double> getTrainingVolume(String dateKey);
+
+  /// Get exercises from library by category
+  Future<List<ExerciseDefinition>> getExercisesByCategory(String category);
+
+  /// Calculate estimated One-Rep Max (1RM)
+  double calculate1RM(double weight, int reps);
 }
 
 // ============ 4. HYDRATION REPOSITORY ============

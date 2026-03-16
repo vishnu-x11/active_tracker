@@ -1,14 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
+import 'package:active_tracker/domain/repositories/repositories.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // Navigate after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      Get.offNamed('/onboarding');
+    // Navigate after 3 seconds based on auth status
+    Future.delayed(const Duration(seconds: 3), () async {
+      final authController = Get.find<AuthController>();
+      
+      if (authController.isLoggedIn.value) {
+        // Use the same smart navigation logic
+        final onboardingRepo = Get.find<OnboardingRepository>(tag: 'onboarding');
+        final isComplete = await onboardingRepo.isOnboardingComplete();
+        
+        if (isComplete) {
+          Get.offAllNamed('/dashboard');
+        } else {
+          // Try cloud sync one more time
+          final synced = await onboardingRepo.syncUserProfileFromCloud(authController.userId.value);
+          if (synced) {
+            Get.offAllNamed('/dashboard');
+          } else {
+            Get.offAllNamed('/onboarding');
+          }
+        }
+      } else {
+        Get.offAllNamed('/login');
+      }
     });
 
     return Scaffold(
@@ -19,7 +41,7 @@ class SplashScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primary.withOpacity(0.7),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
             ],
           ),
         ),

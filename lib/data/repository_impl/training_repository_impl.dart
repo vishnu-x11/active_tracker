@@ -1,7 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
+import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
 
@@ -22,10 +24,19 @@ class TrainingRepositoryImpl implements TrainingRepository {
     try {
       final log = workoutLog.copyWith(userId: userId);
 
-      await _db.insert(
+      final id = await _db.insert(
         'workout_logs',
         log.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'create',
+        tableName: 'workout_logs',
+        entityId: id.toString(),
+        data: log.copyWith(id: id).toMap(),
       );
 
       print('✅ Workout log added: ${workoutLog.workoutName}');
@@ -70,11 +81,21 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> updateWorkoutLog(WorkoutLog workoutLog) async {
     try {
+      final log = workoutLog.copyWith(userId: userId);
       await _db.update(
         'workout_logs',
-        workoutLog.copyWith(userId: userId).toMap(),
+        log.toMap(),
         where: 'id = ? AND userId = ?',
         whereArgs: [workoutLog.id, userId],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'workout_logs',
+        entityId: workoutLog.id.toString(),
+        data: log.toMap(),
       );
 
       print('✅ Workout log updated');
@@ -93,6 +114,15 @@ class TrainingRepositoryImpl implements TrainingRepository {
         whereArgs: [id, userId],
       );
 
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'delete',
+        tableName: 'workout_logs',
+        entityId: id.toString(),
+        data: {'id': id},
+      );
+
       print('✅ Workout log deleted');
     } catch (e) {
       print('❌ Error deleting workout log: $e');
@@ -107,10 +137,19 @@ class TrainingRepositoryImpl implements TrainingRepository {
     try {
       final ex = exercise.copyWith(userId: userId);
 
-      await _db.insert(
+      final id = await _db.insert(
         'exercises',
         ex.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'create',
+        tableName: 'exercises',
+        entityId: id.toString(),
+        data: ex.copyWith(id: id).toMap(),
       );
 
       print('✅ Exercise added: ${exercise.exerciseType}');
@@ -155,11 +194,21 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> updateExercise(Exercise exercise) async {
     try {
+      final ex = exercise.copyWith(userId: userId);
       await _db.update(
         'exercises',
-        exercise.copyWith(userId: userId).toMap(),
+        ex.toMap(),
         where: 'id = ? AND userId = ?',
         whereArgs: [exercise.id, userId],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'exercises',
+        entityId: exercise.id.toString(),
+        data: ex.toMap(),
       );
 
       print('✅ Exercise updated');
@@ -176,6 +225,15 @@ class TrainingRepositoryImpl implements TrainingRepository {
         'exercises',
         where: 'id = ? AND userId = ?',
         whereArgs: [id, userId],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'delete',
+        tableName: 'exercises',
+        entityId: id.toString(),
+        data: {'id': id},
       );
 
       print('✅ Exercise deleted');
@@ -225,6 +283,83 @@ class TrainingRepositoryImpl implements TrainingRepository {
     } catch (e) {
       print('❌ Error getting calories burned: $e');
       return 0.0;
+    }
+  }
+
+  @override
+  Future<List<ExerciseDefinition>> searchExercises(String query) async {
+    try {
+      final result = await _db.query(
+        'exercise_definitions',
+        where: 'name LIKE ?',
+        whereArgs: ['%$query%'],
+        limit: 10,
+      );
+
+      return result.map((map) => ExerciseDefinition.fromMap(map)).toList();
+    } catch (e) {
+      print('❌ Error searching exercises: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<ExerciseDefinition?> getExerciseDefinitionByName(String name) async {
+    try {
+      final result = await _db.query(
+        'exercise_definitions',
+        where: 'name = ?',
+        whereArgs: [name],
+        limit: 1,
+      );
+
+      if (result.isEmpty) return null;
+      return ExerciseDefinition.fromMap(result.first);
+    } catch (e) {
+      print('❌ Error getting exercise definition by name: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<double> getTrainingVolume(String dateKey) async {
+    try {
+      final result = await _db.rawQuery(
+        '''SELECT SUM(CAST(reps AS REAL) * CAST(sets AS REAL) * COALESCE(weight, 0)) as totalVolume 
+           FROM exercises 
+           WHERE userId = ? AND dateKey = ?''',
+        [userId, dateKey],
+      );
+
+      return (result.first['totalVolume'] as num?)?.toDouble() ?? 0.0;
+    } catch (e) {
+      print('❌ Error calculating training volume: $e');
+      return 0.0;
+    }
+  }
+
+  @override
+  double calculate1RM(double weight, int reps) {
+    if (reps <= 0) return 0;
+    if (reps == 1) return weight;
+    // Epley Formula: 1RM = W * (1 + r/30)
+    return weight * (1 + reps / 30);
+  }
+
+  @override
+  Future<List<ExerciseDefinition>> getExercisesByCategory(String category) async {
+    try {
+      final result = await _db.query(
+        'exercise_definitions',
+        where: 'category = ?',
+        whereArgs: [category],
+        orderBy: 'name ASC',
+      );
+
+      return result.map((map) => ExerciseDefinition.fromMap(map)).toList();
+    } catch (e) {
+      print('❌ Error getting exercises by category: $e');
+      return [];
     }
   }
 }

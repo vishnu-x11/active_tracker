@@ -184,8 +184,10 @@ class BmiController extends GetxController {
   /// Get ideal weight range
   Map<String, double> getIdealWeightRange() {
     // Using normal BMI range: 18.5 - 24.9
-    final minWeight = 18.5 * (height.value * height.value);
-    final maxWeight = 24.9 * (height.value * height.value);
+    // Height is in cm, so convert to meters (height / 100) first
+    final heightInMeters = height.value / 100;
+    final minWeight = 18.5 * (heightInMeters * heightInMeters);
+    final maxWeight = 24.9 * (heightInMeters * heightInMeters);
 
     return {
       'min': minWeight,

@@ -23,6 +23,9 @@ class HiveManager {
       await Hive.openBox<WaterLogModel>(AppConstants.waterLogBoxName);
       await Hive.openBox<BmiResultModel>(AppConstants.bmiResultBoxName);
       await Hive.openBox<NoteModel>(AppConstants.noteBoxName);
+      await Hive.openBox(AppConstants.authBoxName);
+      await Hive.openBox(AppConstants.appSettingsBoxName);
+      await Hive.openBox(AppConstants.premiumSettingsBoxName);
 
       print('✅ Hive initialized successfully');
     } catch (e) {
@@ -49,5 +52,20 @@ class HiveManager {
   /// Get notes box
   static Box<NoteModel> getNotesBox() {
     return Hive.box<NoteModel>(AppConstants.noteBoxName);
+  }
+
+  /// Get auth box
+  static Box getAuthBox() {
+    return Hive.box(AppConstants.authBoxName);
+  }
+
+  /// Get app settings box
+  static Box getAppSettingsBox() {
+    return Hive.box(AppConstants.appSettingsBoxName);
+  }
+
+  /// Get premium settings box
+  static Box getPremiumSettingsBox() {
+    return Hive.box(AppConstants.premiumSettingsBoxName);
   }
 }

@@ -1,15 +1,21 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/daily_log_summary.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
+import 'package:active_tracker/data/local/hive_manager.dart';
 
 /// Implementation of DailyLogRepository
 /// Manages daily log summaries and aggregated data
 class DailyLogRepositoryImpl implements DailyLogRepository {
   final String userId;
+  final HydrationRepository _hydrationRepository;
 
-  DailyLogRepositoryImpl({required this.userId});
+  DailyLogRepositoryImpl({
+    required this.userId,
+    required HydrationRepository hydrationRepository,
+  }) : _hydrationRepository = hydrationRepository;
 
   /// Get database instance
   Database get _db => SqliteManager.getInstance();
@@ -42,6 +48,15 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
         'daily_log_summary',
         summary.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'daily_log_summary',
+        entityId: summary.dateKey,
+        data: summary.toMap(),
       );
 
       print('✅ Daily log summary updated for ${dailySummary.dateKey}');
@@ -91,26 +106,17 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       final fat = (foodResult.first['fat'] as num).toDouble();
       final carbs = (foodResult.first['carbs'] as num).toDouble();
 
-      // Get workout duration
+      // Get workout duration and calories burned
       final workoutResult = await _db.rawQuery(
-        'SELECT COALESCE(SUM(duration), 0) as total FROM workout_logs WHERE userId = ? AND dateKey = ?',
+        'SELECT COALESCE(SUM(duration), 0) as totalDuration, COALESCE(SUM(caloriesBurned), 0) as totalBurned FROM workout_logs WHERE userId = ? AND dateKey = ?',
         [userId, dateKey],
       );
 
-      final workoutMinutes = (workoutResult.first['total'] as int);
+      final workoutMinutes = (workoutResult.first['totalDuration'] as int);
+      final caloriesBurned = (workoutResult.first['totalBurned'] as num).toDouble();
 
-      // Get water intake (from daily_log_summary if tracked there, or calculate separately)
-      double totalWater = 0.0;
-      final waterResult = await _db.query(
-        'daily_log_summary',
-        columns: ['totalWater'],
-        where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
-      );
-
-      if (waterResult.isNotEmpty) {
-        totalWater = (waterResult.first['totalWater'] as num?)?.toDouble() ?? 0.0;
-      }
+      // Get water intake from actual Hydration storage (Hive)
+      final totalWater = await _hydrationRepository.getTotalWaterForDate(dateKey);
 
       // Get exercise counts
       final pushupResult = await _db.rawQuery(
@@ -137,6 +143,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
         totalCarbs: carbs,
         totalWater: totalWater,
         workoutMinutes: workoutMinutes,
+        totalCaloriesBurned: caloriesBurned,
         pushups: pushups,
         pullups: pullups,
         createdAt: now,
@@ -162,13 +169,18 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
           'protein': false,
           'water': false,
           'workout': false,
+          'calories_burned': false,
         };
       }
 
-      // Default goals (should be fetched from user profile)
-      const calorieGoal = 2000.0;
-      const proteinGoal = 150.0;
-      const waterGoal = 2500.0;
+      // Fetch goals from User Profile
+      final profileBox = HiveManager.getUserBox();
+      final profile = profileBox.get('userProfile'); // Consistent with OnboardingRepository
+
+      final calorieGoal = profile?.calorieGoal ?? 2000.0;
+      final proteinGoal = profile?.proteinGoal ?? 150.0;
+      final waterGoal = (profile?.waterGoalMl ?? 2500).toDouble();
+      final burnedGoal = profile?.burnedCalorieGoal ?? 500.0;
       const workoutGoalMinutes = 30;
 
       return {
@@ -176,6 +188,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
         'protein': summary.isProteinGoalMet(proteinGoal),
         'water': summary.isWaterGoalMet(waterGoal),
         'workout': summary.isWorkoutGoalMet(minMinutes: workoutGoalMinutes),
+        'calories_burned': summary.totalCaloriesBurned >= burnedGoal,
       };
     } catch (e) {
       print('❌ Error getting goals met: $e');
@@ -330,6 +343,15 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
         'daily_log_summary',
         where: 'userId = ? AND dateKey = ?',
         whereArgs: [userId, dateKey],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'delete',
+        tableName: 'daily_log_summary',
+        entityId: dateKey,
+        data: {'dateKey': dateKey},
       );
 
       print('✅ Daily log summary deleted');

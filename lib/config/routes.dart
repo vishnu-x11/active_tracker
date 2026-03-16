@@ -8,9 +8,21 @@ import 'package:active_tracker/presentation/pages/login_screen.dart';
 import 'package:active_tracker/presentation/pages/notes_screen.dart';
 import 'package:active_tracker/presentation/pages/nutrition_screen.dart';
 import 'package:active_tracker/presentation/pages/onboarding_screen.dart';
+import 'package:active_tracker/presentation/pages/settings_screen.dart';
 import 'package:active_tracker/presentation/pages/signup_screen.dart';
 import 'package:active_tracker/presentation/pages/splash_screen.dart';
 import 'package:active_tracker/presentation/pages/training_screen.dart';
+import 'package:active_tracker/presentation/pages/analytics_screen.dart';
+import 'package:active_tracker/presentation/pages/workout_programs_screen.dart';
+import 'package:active_tracker/presentation/pages/meal_planning_screen.dart';
+import 'package:active_tracker/presentation/pages/goals_screen.dart';
+import 'package:active_tracker/presentation/pages/achievements_screen.dart';
+import 'package:active_tracker/presentation/pages/social_screen.dart';
+import 'package:active_tracker/presentation/pages/body_metrics_screen.dart';
+import 'package:active_tracker/presentation/pages/devices_screen.dart';
+import 'package:active_tracker/presentation/pages/ai_coach_screen.dart';
+import 'package:active_tracker/presentation/pages/pricing_screen.dart';
+import 'package:active_tracker/presentation/screens/auth/otp_screen.dart';
 import 'package:get/get.dart';
 import 'package:active_tracker/presentation/bindings/app_binding.dart';
 import 'constants.dart';
@@ -126,6 +138,89 @@ final List<GetPage<dynamic>> appPages = [
     name: AppConstants.routeCalendar,
     page: () => const CalendarScreen(),
     binding: DailyLogBinding(),
+    transition: Transition.rightToLeft,
+  ),
+  
+  GetPage(
+    name: AppConstants.routeSettings,
+    page: () => const SettingsScreen(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeOtp,
+    page: () => const OtpScreen(),
+    binding: AuthBinding(),
+    transition: Transition.fadeIn,
+  ),
+
+  GetPage(
+    name: AppConstants.routeAnalytics,
+    page: () => const AnalyticsScreen(),
+    binding: AnalyticsBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeWorkoutPrograms,
+    page: () => const WorkoutProgramsScreen(),
+    binding: WorkoutBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeMealPlanning,
+    page: () => const MealPlanningScreen(),
+    binding: MealPlanningBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeGoals,
+    page: () => const GoalsScreen(),
+    binding: GoalsBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeAchievements,
+    page: () => const AchievementsScreen(),
+    binding: GamificationBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeSocial,
+    page: () => const SocialScreen(),
+    binding: SocialBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeBodyMetrics,
+    page: () => const BodyMetricsScreen(),
+    binding: BodyMetricsBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeDevices,
+    page: () => const DevicesScreen(),
+    binding: DeviceBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routeAICoach,
+    page: () => AICoachScreen(),
+    binding: AICoachBinding(),
+    transition: Transition.rightToLeft,
+  ),
+
+  GetPage(
+    name: AppConstants.routePricing,
+    page: () => const PricingScreen(),
+    binding: PremiumBinding(),
     transition: Transition.rightToLeft,
   ),
 ];

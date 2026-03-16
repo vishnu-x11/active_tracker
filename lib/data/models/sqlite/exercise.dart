@@ -5,6 +5,7 @@ class Exercise {
   final String userId;
   final String dateKey; // Format: "2025-02-21"
   final String exerciseType; // "pushup", "pullup", custom names
+  final String category;
   final int reps;
   final int sets;
   final double? weight; // kg, null for bodyweight exercises
@@ -17,6 +18,7 @@ class Exercise {
     required this.userId,
     required this.dateKey,
     required this.exerciseType,
+    required this.category,
     required this.reps,
     required this.sets,
     this.weight,
@@ -32,6 +34,7 @@ class Exercise {
       'userId': userId,
       'dateKey': dateKey,
       'exerciseType': exerciseType,
+      'category': category,
       'reps': reps,
       'sets': sets,
       'weight': weight,
@@ -48,6 +51,7 @@ class Exercise {
       userId: map['userId'] as String,
       dateKey: map['dateKey'] as String,
       exerciseType: map['exerciseType'] as String,
+      category: map['category'] as String? ?? 'General',
       reps: map['reps'] as int,
       sets: map['sets'] as int,
       weight: map['weight'] != null ? (map['weight'] as num).toDouble() : null,
@@ -63,6 +67,7 @@ class Exercise {
     String? userId,
     String? dateKey,
     String? exerciseType,
+    String? category,
     int? reps,
     int? sets,
     double? weight,
@@ -75,6 +80,7 @@ class Exercise {
       userId: userId ?? this.userId,
       dateKey: dateKey ?? this.dateKey,
       exerciseType: exerciseType ?? this.exerciseType,
+      category: category ?? this.category,
       reps: reps ?? this.reps,
       sets: sets ?? this.sets,
       weight: weight ?? this.weight,

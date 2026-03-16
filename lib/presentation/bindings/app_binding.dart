@@ -1,9 +1,23 @@
+import 'package:active_tracker/data/sync/sync_nutrition_repository.dart';
+import 'package:active_tracker/data/sync/sync_training_repository.dart';
+import 'package:active_tracker/data/sync/sync_hydration_repository.dart';
+import 'package:active_tracker/data/sync/sync_bmi_repository.dart';
+import 'package:active_tracker/data/repository_impl/onboarding_repository_impl.dart';
+import 'package:active_tracker/data/repository_impl/nutrition_repository_impl.dart';
+import 'package:active_tracker/data/repository_impl/training_repository_impl.dart';
+import 'package:active_tracker/data/repository_impl/hydration_repository_impl.dart';
 import 'package:active_tracker/data/repository_impl/bmi_repository_impl.dart';
 import 'package:active_tracker/data/repository_impl/daily_log_repository_impl.dart';
-import 'package:active_tracker/data/repository_impl/hydration_repository_impl.dart';
-import 'package:active_tracker/data/repository_impl/nutrition_repository_impl.dart';
-import 'package:active_tracker/data/repository_impl/onboarding_repository_impl.dart';
-import 'package:active_tracker/data/repository_impl/training_repository_impl.dart';
+import 'package:active_tracker/presentation/controllers/analytics/analytics_controller.dart';
+import 'package:active_tracker/presentation/controllers/workouts/workout_programs_controller.dart';
+import 'package:active_tracker/presentation/controllers/nutrition/meal_planning/meal_planning_controller.dart';
+import 'package:active_tracker/presentation/controllers/goals/goals_controller.dart';
+import 'package:active_tracker/presentation/controllers/gamification/gamification_controller.dart';
+import 'package:active_tracker/presentation/controllers/social/social_controller.dart';
+import 'package:active_tracker/presentation/controllers/body_metrics/body_metrics_controller.dart';
+import 'package:active_tracker/presentation/controllers/devices/device_controller.dart';
+import 'package:active_tracker/presentation/controllers/ai_coach/ai_coach_controller.dart';
+import 'package:active_tracker/presentation/controllers/premium/premium_controller.dart';
 import 'package:get/get.dart';
 
 import 'package:active_tracker/data/sync/sync_manager.dart';
@@ -59,6 +73,42 @@ class AppBinding extends Bindings {
       permanent: true,
     );
 
+    // Authentication (permanent global)
+    Get.put<AuthController>(
+      AuthController(),
+      permanent: true,
+    );
+
+    // Onboarding (needed by AuthController and SplashScreen)
+    Get.put<OnboardingRepository>(
+      OnboardingRepositoryImpl(),
+      tag: 'onboarding',
+      permanent: true,
+    );
+
+    // ============ CORE REPOSITORIES (Added in v4.0 for Dashboard support) ============
+    
+    Get.put<HydrationRepository>(
+      HydrationRepositoryImpl(userId: 'current-user-id'),
+      tag: 'hydration',
+      permanent: true,
+    );
+
+    Get.put<DailyLogRepository>(
+      DailyLogRepositoryImpl(
+        userId: 'current-user-id',
+        hydrationRepository: Get.find<HydrationRepository>(tag: 'hydration'),
+      ),
+      tag: 'daily_log',
+      permanent: true,
+    );
+
+    // ============ PREMIUM INFRASTRUCTURE (New in v4.0) ============
+    Get.put<PremiumController>(
+      PremiumController(),
+      permanent: true,
+    );
+
     print('✅ AppBinding: Global dependencies ready');
   }
 }
@@ -68,13 +118,8 @@ class AppBinding extends Bindings {
 class AuthBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔧 AuthBinding: Setting up authentication...');
-
-    Get.lazyPut<AuthController>(
-          () => AuthController(),
-    );
-
-    print('✅ AuthBinding: Authentication ready');
+    print('🔧 AuthBinding: Already configured globally in AppBinding');
+    print('✅ AuthBinding: Ready');
   }
 }
 
@@ -83,21 +128,22 @@ class AuthBinding extends Bindings {
 class OnboardingBinding extends Bindings {
   @override
   void dependencies() {
-    print('🔧 OnboardingBinding: Setting up onboarding...');
-
-    Get.lazyPut<OnboardingRepository>(
-          () => OnboardingRepositoryImpl(),
-      tag: 'onboarding',
-    );
-
-    Get.lazyPut<OnboardingController>(
-          () => OnboardingController(
-        Get.find<OnboardingRepository>(tag: 'onboarding'),
-      ),
-      tag: 'onboarding',
-    );
-
-    print('✅ OnboardingBinding: Onboarding ready');
+    print('🔧 OnboardingBinding: Dependencies already handled in AppBinding');
+    
+    // Ensure controller is available if not already
+    try {
+      Get.find<OnboardingController>(tag: 'onboarding');
+    } catch (_) {
+      Get.put<OnboardingController>(
+        OnboardingController(
+          Get.find<OnboardingRepository>(tag: 'onboarding'),
+        ),
+        tag: 'onboarding',
+        permanent: true,
+      );
+    }
+    
+    print('✅ OnboardingBinding: Ready');
   }
 }
 
@@ -109,7 +155,10 @@ class DashboardBinding extends Bindings {
     print('🔧 DashboardBinding: Setting up dashboard...');
 
     Get.lazyPut<DashboardController>(
-          () => DashboardController(),
+          () => DashboardController(
+            Get.find<DailyLogRepository>(tag: 'daily_log'),
+            Get.find<OnboardingRepository>(tag: 'onboarding'),
+          ),
       tag: 'dashboard',
     );
 
@@ -125,7 +174,10 @@ class NutritionBinding extends Bindings {
     print('🔧 NutritionBinding: Setting up nutrition...');
 
     Get.lazyPut<NutritionRepository>(
-          () => NutritionRepositoryImpl(userId: 'current-user-id'),
+          () => SyncNutritionRepository(
+            userId: 'current-user-id',
+            localRepository: NutritionRepositoryImpl(userId: 'current-user-id'),
+          ),
       tag: 'nutrition',
     );
 
@@ -148,7 +200,10 @@ class TrainingBinding extends Bindings {
     print('🔧 TrainingBinding: Setting up training...');
 
     Get.lazyPut<TrainingRepository>(
-          () => TrainingRepositoryImpl(userId: 'current-user-id'),
+          () => SyncTrainingRepository(
+            userId: 'current-user-id',
+            localRepository: TrainingRepositoryImpl(userId: 'current-user-id'),
+          ),
       tag: 'training',
     );
 
@@ -171,7 +226,10 @@ class HydrationBinding extends Bindings {
     print('🔧 HydrationBinding: Setting up hydration...');
 
     Get.lazyPut<HydrationRepository>(
-          () => HydrationRepositoryImpl(userId: 'current-user-id'),
+          () => SyncHydrationRepository(
+            userId: 'current-user-id',
+            localRepository: HydrationRepositoryImpl(userId: 'current-user-id'),
+          ),
       tag: 'hydration',
     );
 
@@ -194,7 +252,10 @@ class BmiBinding extends Bindings {
     print('🔧 BmiBinding: Setting up BMI...');
 
     Get.lazyPut<BmiRepository>(
-          () => BmiRepositoryImpl(userId: 'current-user-id'),
+          () => SyncBmiRepository(
+            userId: 'current-user-id',
+            localRepository: BmiRepositoryImpl(userId: 'current-user-id'),
+          ),
       tag: 'bmi',
     );
 
@@ -217,7 +278,10 @@ class DailyLogBinding extends Bindings {
     print('🔧 DailyLogBinding: Setting up daily log...');
 
     Get.lazyPut<DailyLogRepository>(
-          () => DailyLogRepositoryImpl(userId: 'current-user-id'),
+          () => DailyLogRepositoryImpl(
+            userId: 'current-user-id',
+            hydrationRepository: Get.find<HydrationRepository>(tag: 'hydration'),
+          ),
       tag: 'daily_log',
     );
 
@@ -243,5 +307,85 @@ class SyncBinding extends Bindings {
     Get.find<SyncStatusController>();
 
     print('✅ SyncBinding: Sync ready');
+  }
+}
+
+// ============ ANALYTICS BINDING (New in v4.0) ============
+class AnalyticsBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<AnalyticsController>(() => AnalyticsController());
+  }
+}
+
+// ============ WORKOUT BINDING (New in v4.0) ============
+class WorkoutBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<WorkoutProgramsController>(() => WorkoutProgramsController());
+  }
+}
+
+// ============ MEAL PLANNING BINDING (New in v4.0) ============
+class MealPlanningBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<MealPlanningController>(() => MealPlanningController());
+  }
+}
+
+// ============ GOALS BINDING (New in v4.0) ============
+class GoalsBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<GoalsController>(() => GoalsController());
+  }
+}
+
+// ============ GAMIFICATION BINDING (New in v4.0) ============
+class GamificationBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<GamificationController>(() => GamificationController());
+  }
+}
+
+// ============ SOCIAL BINDING (New in v4.0) ============
+class SocialBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<SocialController>(() => SocialController());
+  }
+}
+
+// ============ BODY METRICS BINDING (New in v4.0) ============
+class BodyMetricsBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<BodyMetricsController>(() => BodyMetricsController());
+  }
+}
+
+// ============ DEVICE BINDING (New in v4.0) ============
+class DeviceBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<DeviceController>(() => DeviceController());
+  }
+}
+
+// ============ AI COACH BINDING (New in v4.0) ============
+class AICoachBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<AICoachController>(() => AICoachController());
+  }
+}
+
+// ============ PREMIUM BINDING (New in v4.0) ============
+class PremiumBinding extends Bindings {
+  @override
+  void dependencies() {
+    Get.lazyPut<PremiumController>(() => PremiumController());
   }
 }

@@ -1,5 +1,6 @@
 import 'package:active_tracker/data/models/hive/water_log_model.dart';
 import 'package:active_tracker/data/local/hive_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
 import 'package:hive/hive.dart';
@@ -46,6 +47,16 @@ class HydrationRepositoryImpl implements HydrationRepository {
       );
 
       await _waterBox.add(waterLog);
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'create',
+        tableName: 'hydration_logs',
+        entityId: waterLog.timestamp.millisecondsSinceEpoch.toString(),
+        data: waterLog.toMap(),
+      );
+
       print('✅ Water intake logged: ${mlConsumed}ml');
     } catch (e) {
       print('❌ Error logging water intake: $e');
@@ -114,6 +125,18 @@ class HydrationRepositoryImpl implements HydrationRepository {
   /// Delete water log
   Future<void> deleteWaterLog(int index) async {
     try {
+      final log = _waterBox.getAt(index);
+      if (log != null) {
+        // Queue for sync
+        await SyncManager().queueOperation(
+          userId: userId,
+          operationType: 'delete',
+          tableName: 'hydration_logs',
+          entityId: log.timestamp.millisecondsSinceEpoch.toString(),
+          data: {'timestamp': log.timestamp.toIso8601String()},
+        );
+      }
+
       await _waterBox.deleteAt(index);
       print('✅ Water log deleted');
     } catch (e) {

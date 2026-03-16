@@ -14,6 +14,7 @@ class OnboardingController extends GetxController {
   final userHeight = 0.0.obs;
   final goalType = 1.obs;
   final intensityLevel = 1.obs;
+  final burnedCalorieGoal = 500.0.obs;
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final isOnboardingComplete = false.obs;
@@ -60,9 +61,17 @@ class OnboardingController extends GetxController {
 
   /// Move to next onboarding step
   void nextStep() {
-    if (currentStep.value < 4) {
-      currentStep.value++;
-      print('📍 Moved to step ${currentStep.value}');
+    if (validateCurrentStep()) {
+      if (currentStep.value < 5) {
+        currentStep.value++;
+        print('📍 Moved to step ${currentStep.value}');
+      }
+    } else {
+      Get.snackbar(
+        'Required',
+        'Please complete this step to continue',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -76,6 +85,15 @@ class OnboardingController extends GetxController {
 
   /// Complete onboarding and save user profile
   Future<void> completeOnboarding() async {
+    if (!validateCurrentStep()) {
+      Get.snackbar(
+        'Required',
+        'Please complete this step to continue',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     try {
       isLoading.value = true;
       errorMessage.value = '';
@@ -88,10 +106,12 @@ class OnboardingController extends GetxController {
         height: userHeight.value,
         goalType: goalType.value,
         intensityLevel: intensityLevel.value,
+        burnedCalorieGoal: burnedCalorieGoal.value,
       );
 
       isOnboardingComplete.value = true;
       print('✅ Onboarding completed successfully');
+      Get.offAllNamed('/dashboard');
     } catch (e) {
       errorMessage.value = 'Failed to complete onboarding: $e';
       print('❌ Onboarding error: $e');
@@ -110,19 +130,21 @@ class OnboardingController extends GetxController {
         return userName.value.isNotEmpty;
       case 1: // Age
         return userAge.value > 0;
-      case 2: // Weight & Height
-        return userWeight.value > 0 && userHeight.value > 0;
-      case 3: // Goal
+      case 2: // Weight
+        return userWeight.value > 0;
+      case 3: // Height
+        return userHeight.value > 0;
+      case 4: // Goal
         return goalType.value > 0;
-      case 4: // Intensity
-        return intensityLevel.value > 0;
+      case 5: // Burned Calories Goal
+        return burnedCalorieGoal.value > 0;
       default:
         return false;
     }
   }
 
   /// Get step progress (0.0 to 1.0)
-  double getProgress() => (currentStep.value + 1) / 5.0;
+  double getProgress() => (currentStep.value + 1) / 6.0;
 
   /// Get step title
   String getStepTitle() {
@@ -133,17 +155,17 @@ class OnboardingController extends GetxController {
         return 'How old are you?';
       case 2:
         return 'Your measurements';
-      case 3:
-        return 'What\'s your goal?';
       case 4:
-        return 'Activity level';
+        return 'What\'s your goal?';
+      case 5:
+        return 'Workout goal';
       default:
         return '';
     }
   }
 
   /// Is at last step
-  bool get isLastStep => currentStep.value == 4;
+  bool get isLastStep => currentStep.value == 5;
 
   /// Can proceed to next step
   bool get canProceed => validateCurrentStep();

@@ -6,7 +6,7 @@ class ConnectivityMonitor {
 
   final Connectivity _connectivity = Connectivity();
 
-  late bool _isOnline;
+  bool _isOnline = true;
 
   factory ConnectivityMonitor() {
     return _instance;

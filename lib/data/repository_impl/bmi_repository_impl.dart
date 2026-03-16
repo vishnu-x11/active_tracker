@@ -3,6 +3,7 @@ import 'package:active_tracker/data/models/sqlite/body_weight_log.dart';
 import 'package:active_tracker/data/models/hive/bmi_result_model.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
 import 'package:active_tracker/data/local/hive_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
 import 'package:hive/hive.dart';
@@ -69,6 +70,16 @@ class BmiRepositoryImpl implements BmiRepository {
 
       // Save to Hive
       await _bmiBox.put('${dateKey}_bmi', bmiResult);
+      
+      // Queue for sync (Treating Hive box as table)
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'bmi_results',
+        entityId: dateKey,
+        data: bmiResult.toMap(),
+      );
+      
       print('✅ BMI calculated and saved: $bmi ($category)');
     } catch (e) {
       print('❌ Error calculating BMI: $e');
@@ -127,10 +138,19 @@ class BmiRepositoryImpl implements BmiRepository {
     try {
       final log = bodyWeightLog.copyWith(userId: userId);
 
-      await _db.insert(
+      final id = await _db.insert(
         'body_weight_logs',
         log.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'create',
+        tableName: 'body_weight_logs',
+        entityId: id.toString(),
+        data: log.copyWith(id: id).toMap(),
       );
 
       print('✅ Body weight log added: ${bodyWeightLog.weight}kg');

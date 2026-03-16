@@ -52,6 +52,30 @@ class WaterLogModel extends HiveObject {
     );
   }
 
+  /// Convert model to map for SQLite/Sync
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'dateKey': dateKey,
+      'mlConsumed': mlConsumed,
+      'timestamp': timestamp.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  /// Create model from map
+  factory WaterLogModel.fromMap(Map<String, dynamic> map) {
+    return WaterLogModel(
+      userId: map['userId'] as String,
+      dateKey: map['dateKey'] as String,
+      mlConsumed: (map['mlConsumed'] as num).toDouble(),
+      timestamp: DateTime.parse(map['timestamp'] as String),
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
+    );
+  }
+
   @override
   String toString() {
     return 'WaterLogModel(userId: $userId, dateKey: $dateKey, mlConsumed: $mlConsumed)';

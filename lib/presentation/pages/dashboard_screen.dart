@@ -1,8 +1,11 @@
-import 'package:active_tracker/presentation/pages/settings_screen.dart';
+import 'package:active_tracker/presentation/widgets/goal_card.dart';
 import 'package:active_tracker/presentation/widgets/sync_status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:active_tracker/presentation/controllers/dashboard_controller.dart';
+import 'package:active_tracker/presentation/controllers/premium/premium_controller.dart';
+import 'package:active_tracker/config/constants.dart';
+import 'package:active_tracker/config/theme.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -74,16 +77,27 @@ class DashboardScreen extends StatelessWidget {
                           title: 'Workout',
                           value: controller.todayWorkoutMinutes.value.toStringAsFixed(0),
                           unit: 'min',
-                          goal: 30,
-                          progress: controller.todayWorkoutMinutes.value / 30,
-                          isMet: controller.todayWorkoutMinutes.value >= 30,
+                          goal: controller.workoutGoal.value.toDouble(),
+                          progress: controller.workoutProgress.value,
+                          isMet: controller.isGoalMet('workout'),
+                        )),
+
+                        // Calories Burned Goal
+                        Obx(() => GoalCard(
+                          icon: Icons.local_fire_department,
+                          title: 'Calories Burned',
+                          value: controller.todayBurnedCalories.value.toStringAsFixed(0),
+                          unit: 'kcal',
+                          goal: controller.burnedCalorieGoal.value,
+                          progress: controller.caloriesBurnedProgress.value,
+                          isMet: controller.isGoalMet('burned'),
                         )),
 
                         // Weight Goal
                         Obx(() => GoalCard(
                           icon: Icons.scale,
                           title: 'Weight',
-                          value: '${controller.todayWeight.value.toStringAsFixed(1)}',
+                          value: controller.todayWeight.value.toStringAsFixed(1),
                           unit: 'kg',
                           progress: 0.5,
                         )),
@@ -98,36 +112,99 @@ class DashboardScreen extends StatelessWidget {
                         const SizedBox(height: 12),
 
                         GridView.count(
-                          crossAxisCount: 2,
+                          crossAxisCount: 3,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 1.5,
+                          mainAxisSpacing: AppPadding.md,
+                          crossAxisSpacing: AppPadding.md,
+                          childAspectRatio: 1.0,
                           children: [
-                            _buildQuickActionCard(
+                             _buildQuickActionCard(
                               context,
                               Icons.fastfood,
                               'Log Food',
-                                  () => Get.toNamed('/nutrition'),
+                              () => _handleAction(AppConstants.routeNutrition),
                             ),
                             _buildQuickActionCard(
                               context,
                               Icons.fitness_center,
                               'Log Workout',
-                                  () => Get.toNamed('/training'),
+                              () => _handleAction(AppConstants.routeTraining),
                             ),
                             _buildQuickActionCard(
                               context,
                               Icons.local_drink,
                               'Log Water',
-                                  () => Get.toNamed('/hydration'),
+                              () => _handleAction(AppConstants.routeHydration),
                             ),
                             _buildQuickActionCard(
                               context,
                               Icons.scale,
                               'Log Weight',
-                                  () => Get.toNamed('/bmi'),
+                              () => _handleAction(AppConstants.routeBmi),
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.insights,
+                              'Insights',
+                              () => _handleAction(AppConstants.routeAnalytics, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.fitness_center, // Different icon for program vs log
+                              'Workouts',
+                              () => _handleAction(AppConstants.routeWorkoutPrograms, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.restaurant_menu,
+                              'Meal Plans',
+                              () => _handleAction(AppConstants.routeMealPlanning, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.flag,
+                              'Goals',
+                              () => _handleAction(AppConstants.routeGoals, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.emoji_events,
+                              'Collection',
+                              () => _handleAction(AppConstants.routeAchievements, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.people,
+                              'Community',
+                              () => _handleAction(AppConstants.routeSocial, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.monitor_weight_outlined,
+                              'Health',
+                              () => _handleAction(AppConstants.routeBodyMetrics, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.watch,
+                              'Devices',
+                              () => _handleAction(AppConstants.routeDevices, isPremium: true),
+                              isPremium: true,
+                            ),
+                            _buildQuickActionCard(
+                              context,
+                              Icons.psychology,
+                              'AI Coach',
+                              () => _handleAction(AppConstants.routeAICoach, isPremium: true),
+                              isPremium: true,
                             ),
                           ],
                         ),
@@ -143,25 +220,67 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  void _handleAction(String route, {bool isPremium = false}) {
+    if (isPremium) {
+      final premiumController = Get.find<PremiumController>();
+      if (premiumController.isPremium.value) {
+        Get.toNamed(route);
+      } else {
+        Get.toNamed(AppConstants.routePricing);
+      }
+    } else {
+      Get.toNamed(route);
+    }
+  }
+
   Widget _buildQuickActionCard(
       BuildContext context,
       IconData icon,
       String label,
-      VoidCallback onTap,
-      ) {
+      VoidCallback onTap, {
+        bool isPremium = false,
+      }) {
     return GestureDetector(
       onTap: onTap,
       child: Card(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        elevation: 0,
+        color: AppTheme.white.withOpacity(0.05),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: BorderSide(color: AppTheme.white.withOpacity(0.1)),
+        ),
+        child: Stack(
           children: [
-            Icon(icon, size: 36, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium,
-              textAlign: TextAlign.center,
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 36, color: isPremium ? AppTheme.accent : AppTheme.primary),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
+            if (isPremium)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'PRO',
+                    style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

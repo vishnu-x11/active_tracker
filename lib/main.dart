@@ -4,6 +4,11 @@ import 'config/constants.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
 import 'data/local/hive_manager.dart';
+import 'data/local/sqlite_manager.dart';
+import 'data/remote/firebase_manager.dart';
+import 'data/sync/connectivity_monitor.dart';
+import 'data/sync/sync_manager.dart';
+import 'presentation/bindings/app_binding.dart';
 
 void main() async {
   // ============ STEP 1: Ensure Flutter Bindings ============
@@ -15,14 +20,16 @@ void main() async {
     print('✅ Hive initialized successfully');
 
     // ============ STEP 3: Initialize SQLite (Local Cache) ============
-    // TODO: Import and initialize SqliteManager
-    print('✅ SQLite initialized successfully');
+    await SqliteManager.init();
 
     // ============ STEP 4: Initialize Firebase (Cloud Backend) ============
-    // TODO: Import and initialize FirebaseManager
-    print('✅ Firebase initialized successfully');
+    await FirebaseManager.init();
 
-    print('✅ All databases initialized successfully');
+    // ============ STEP 5: Initialize Sync Infrastructure ============
+    await ConnectivityMonitor().init();
+    await SyncManager().init();
+
+    print('✅ All databases and sync infrastructure initialized successfully');
   } catch (e) {
     print('❌ Database initialization failed: $e');
   }
@@ -48,6 +55,7 @@ class MyApp extends StatelessWidget {
       // ============ ROUTING ============
       initialRoute: AppRoutes.splash,
       getPages: appPages,
+      initialBinding: AppBinding(),
 
       // ============ LOCALIZATION ============
       locale: const Locale('en', 'US'),

@@ -6,6 +6,7 @@ class DailyLogSummary {
   final String userId;
   final String dateKey; // Format: "2025-02-21"
   final double totalCalories;
+  final double totalCaloriesBurned;
   final double totalProtein;
   final double totalFat;
   final double totalCarbs;
@@ -23,6 +24,7 @@ class DailyLogSummary {
     required this.userId,
     required this.dateKey,
     this.totalCalories = 0,
+    this.totalCaloriesBurned = 0,
     this.totalProtein = 0,
     this.totalFat = 0,
     this.totalCarbs = 0,
@@ -43,6 +45,7 @@ class DailyLogSummary {
       'userId': userId,
       'dateKey': dateKey,
       'totalCalories': totalCalories,
+      'totalCaloriesBurned': totalCaloriesBurned,
       'totalProtein': totalProtein,
       'totalFat': totalFat,
       'totalCarbs': totalCarbs,
@@ -64,6 +67,7 @@ class DailyLogSummary {
       userId: map['userId'] as String,
       dateKey: map['dateKey'] as String,
       totalCalories: (map['totalCalories'] as num?)?.toDouble() ?? 0,
+      totalCaloriesBurned: (map['totalCaloriesBurned'] as num?)?.toDouble() ?? 0,
       totalProtein: (map['totalProtein'] as num?)?.toDouble() ?? 0,
       totalFat: (map['totalFat'] as num?)?.toDouble() ?? 0,
       totalCarbs: (map['totalCarbs'] as num?)?.toDouble() ?? 0,
@@ -84,6 +88,7 @@ class DailyLogSummary {
     String? userId,
     String? dateKey,
     double? totalCalories,
+    double? totalCaloriesBurned,
     double? totalProtein,
     double? totalFat,
     double? totalCarbs,
@@ -101,6 +106,7 @@ class DailyLogSummary {
       userId: userId ?? this.userId,
       dateKey: dateKey ?? this.dateKey,
       totalCalories: totalCalories ?? this.totalCalories,
+      totalCaloriesBurned: totalCaloriesBurned ?? this.totalCaloriesBurned,
       totalProtein: totalProtein ?? this.totalProtein,
       totalFat: totalFat ?? this.totalFat,
       totalCarbs: totalCarbs ?? this.totalCarbs,

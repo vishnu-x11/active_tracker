@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:active_tracker/presentation/controllers/training_controller.dart';
 import 'package:active_tracker/config/constants.dart';
+import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/presentation/widgets/date_navigator.dart';
 
 class TrainingScreen extends StatelessWidget {
@@ -113,7 +114,7 @@ class TrainingScreen extends StatelessWidget {
 
                             const SizedBox(height: 16),
 
-                            // Exercises Section
+                             // Exercises Section
                             Text(
                               'Exercises',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -129,18 +130,35 @@ class TrainingScreen extends StatelessWidget {
                                 'Tap + to log pushups, pullups, etc.',
                               )
                             else
-                              ...controller.exercises.map(
-                                (ex) => Card(
-                                  child: ListTile(
-                                    leading: const Icon(Icons.sports_gymnastics),
-                                    title: Text(ex.exerciseType[0].toUpperCase() + ex.exerciseType.substring(1)),
-                                    subtitle: Text('${ex.reps} reps × ${ex.sets} sets'),
-                                    trailing: ex.weight != null
-                                        ? Text('${ex.weight!.toStringAsFixed(1)} kg')
-                                        : null,
-                                  ),
-                                ),
-                              ),
+                              ...controller.getGroupedExercises().entries.map((entry) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Text(
+                                        entry.key.toUpperCase(),
+                                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          letterSpacing: 1.2,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    ...entry.value.map((ex) => Card(
+                                      child: ListTile(
+                                        leading: const Icon(Icons.sports_gymnastics),
+                                        title: Text(ex.exerciseType),
+                                        subtitle: Text('${ex.reps} reps × ${ex.sets} sets'),
+                                        trailing: ex.weight != null
+                                            ? Text('${ex.weight!.toStringAsFixed(1)} kg')
+                                            : null,
+                                      ),
+                                    )),
+                                    const SizedBox(height: 8),
+                                  ],
+                                );
+                              }),
                           ],
                         ),
                       ),
@@ -150,23 +168,26 @@ class TrainingScreen extends StatelessWidget {
               ],
             ),
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'add_exercise',
-                onPressed: () => _showAddExerciseDialog(context),
-                tooltip: 'Add Exercise',
-                child: const Icon(Icons.sports_gymnastics),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton(
-                heroTag: 'add_workout',
-                onPressed: () => _showAddWorkoutDialog(context),
-                tooltip: 'Add Workout',
-                child: const Icon(Icons.add),
-              ),
-            ],
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'add_exercise',
+                  onPressed: () => _showAddExerciseDialog(context),
+                  tooltip: 'Add Exercise',
+                  child: const Icon(Icons.add),
+                ),
+                FloatingActionButton(
+                  heroTag: 'add_workout',
+                  onPressed: () => _showAddWorkoutDialog(context),
+                  tooltip: 'Add General Workout Session',
+                  child: const Icon(Icons.playlist_add),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -244,44 +265,131 @@ class TrainingScreen extends StatelessWidget {
 
   void _showAddExerciseDialog(BuildContext context) {
     final controller = Get.find<TrainingController>(tag: 'training');
-    String selectedType = AppConstants.exerciseTypePushup;
-    final repsCtrl = TextEditingController();
-    final setsCtrl = TextEditingController();
+    final repsCtrl = TextEditingController(text: '10');
+    final setsCtrl = TextEditingController(text: '3');
+    final weightCtrl = TextEditingController();
+
+    // Reset controller state
+    controller.clearSelection();
 
     Get.dialog(
-      AlertDialog(
-        title: const Text('Add Exercise'),
-        content: StatefulBuilder(
-          builder: (context, setState) => Column(
+      Dialog(
+        child: Container(
+          padding: const EdgeInsets.all(AppPadding.md),
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                decoration: const InputDecoration(labelText: 'Exercise Type'),
-                items: [AppConstants.exerciseTypePushup, AppConstants.exerciseTypePullup]
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t[0].toUpperCase() + t.substring(1))))
-                    .toList(),
-                onChanged: (v) => setState(() => selectedType = v ?? selectedType),
+              Text('Select Exercise', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Search exercises...',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) => controller.searchExercises(value),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Obx(() {
+                  // If searching, show suggestions, else show all categorized by groups
+                  // For simplicity, let's just show all library items if search is empty
+                  final list = controller.exerciseSuggestions;
+                  
+                  if (list.isEmpty && !controller.isSearching.value) {
+                    // Show a message or a default list
+                    return const Center(child: Text('Search for an exercise to log'));
+                  }
+
+                  return ListView.builder(
+                    itemCount: list.length,
+                    itemBuilder: (context, index) {
+                      final item = list[index];
+                      return ListTile(
+                        title: Text(item.name),
+                        trailing: Text(
+                          item.category,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        onTap: () {
+                          _showDetailsForm(context, controller, item, repsCtrl, setsCtrl, weightCtrl);
+                        },
+                      );
+                    },
+                  );
+                }),
               ),
               const SizedBox(height: 8),
-              TextField(controller: repsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps')),
-              const SizedBox(height: 8),
-              TextField(controller: setsCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sets')),
+              TextButton(
+                onPressed: () {
+                  controller.clearSuggestions();
+                  Get.back();
+                },
+                child: const Text('Cancel'),
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showDetailsForm(
+    BuildContext context,
+    TrainingController controller,
+    ExerciseDefinition exercise,
+    TextEditingController repsCtrl,
+    TextEditingController setsCtrl,
+    TextEditingController weightCtrl,
+  ) {
+    Get.back(); // Close category/list dialog
+    
+    Get.dialog(
+      AlertDialog(
+        title: Text('Log ${exercise.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(exercise.category, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 16),
+            TextField(
+              controller: repsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Reps'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: setsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Sets'),
+            ),
+            if (!exercise.isBodyweight) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: weightCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Weight (kg)', suffixText: 'kg'),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               controller.addExercise(
-                exerciseType: selectedType,
+                exerciseType: exercise.name,
+                category: exercise.category,
                 reps: int.tryParse(repsCtrl.text) ?? 0,
                 sets: int.tryParse(setsCtrl.text) ?? 1,
+                weight: double.tryParse(weightCtrl.text),
               );
               Get.back();
             },
-            child: const Text('Add'),
+            child: const Text('Log'),
           ),
         ],
       ),

@@ -1,13 +1,16 @@
 class AppConstants {
   // ============ APP INFO ============
   static const String appName = 'Active Health';
-  static const String appVersion = '3.2.0';
+  static const String appVersion = '4.0.0';
 
   // ============ HIVE BOX NAMES ============
   static const String userBoxName = 'userBox';
   static const String waterLogBoxName = 'waterLogBox';
   static const String bmiResultBoxName = 'bmiResultBox';
   static const String noteBoxName = 'noteBox';
+  static const String authBoxName = 'authBox';
+  static const String appSettingsBoxName = 'appSettingsBox';
+  static const String premiumSettingsBoxName = 'premiumSettingsBox';
 
   // ============ WATER CALCULATION ============
   static const double waterMlPerKg = 35.0;
@@ -63,7 +66,7 @@ class AppConstants {
 
   // ============ DATABASE NAMES ============
   static const String sqliteDbName = 'active_health.db';
-  static const String firebaseProjectId = 'active-health';
+  static const String firebaseProjectId = 'active-health-f8654';
 
   // ============ DAILY GOALS ============
   static const List<String> dailyGoals = [
@@ -90,6 +93,18 @@ class AppConstants {
   static const String routeBodyWeight = '/body-weight';
   static const String routeNotes = '/notes';
   static const String routeCalendar = '/calendar';
+  static const String routeSettings = '/settings';
+  static const String routeOtp = '/otp';
+  static const String routeAnalytics = '/analytics';
+  static const String routeWorkoutPrograms = '/workout-programs';
+  static const String routeMealPlanning = '/meal-planning';
+  static const String routeGoals = '/goals';
+  static const String routeAchievements = '/achievements';
+  static const String routeSocial = '/social';
+  static const String routeBodyMetrics = '/body-metrics';
+  static const String routeDevices = '/devices';
+  static const String routeAICoach = '/ai-coach';
+  static const String routePricing = '/pricing';
 }
 
 class HiveTypeIds {

@@ -1,8 +1,9 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
+import 'package:active_tracker/data/models/sqlite/food_item.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
-import 'package:active_tracker/utils/date_utils.dart';
 
 /// Implementation of NutritionRepository
 /// Manages food logs and nutrition tracking using SQLite
@@ -20,10 +21,19 @@ class NutritionRepositoryImpl implements NutritionRepository {
       // Add userId if not set
       final log = foodLog.copyWith(userId: userId);
 
-      await _db.insert(
+      final id = await _db.insert(
         'food_logs',
         log.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'create',
+        tableName: 'food_logs',
+        entityId: id.toString(),
+        data: log.copyWith(id: id).toMap(),
       );
 
       print('✅ Food log added: ${foodLog.foodName}');
@@ -96,11 +106,21 @@ class NutritionRepositoryImpl implements NutritionRepository {
   @override
   Future<void> updateFoodLog(FoodLog foodLog) async {
     try {
+      final log = foodLog.copyWith(userId: userId);
       await _db.update(
         'food_logs',
-        foodLog.copyWith(userId: userId).toMap(),
+        log.toMap(),
         where: 'id = ? AND userId = ?',
         whereArgs: [foodLog.id, userId],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'food_logs',
+        entityId: foodLog.id.toString(),
+        data: log.toMap(),
       );
 
       print('✅ Food log updated');
@@ -117,6 +137,15 @@ class NutritionRepositoryImpl implements NutritionRepository {
         'food_logs',
         where: 'id = ? AND userId = ?',
         whereArgs: [id, userId],
+      );
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'delete',
+        tableName: 'food_logs',
+        entityId: id.toString(),
+        data: {'id': id},
       );
 
       print('✅ Food log deleted');
@@ -187,6 +216,41 @@ class NutritionRepositoryImpl implements NutritionRepository {
     } catch (e) {
       print('❌ Error getting average calories: $e');
       return 0.0;
+    }
+  }
+
+  @override
+  Future<List<FoodItem>> searchFoodItems(String query) async {
+    try {
+      final result = await _db.query(
+        'food_items',
+        where: 'name LIKE ?',
+        whereArgs: ['%$query%'],
+        limit: 10,
+      );
+
+      return result.map((map) => FoodItem.fromMap(map)).toList();
+    } catch (e) {
+      print('❌ Error searching food items: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<FoodItem?> getFoodItemByName(String name) async {
+    try {
+      final result = await _db.query(
+        'food_items',
+        where: 'name = ?',
+        whereArgs: [name],
+        limit: 1,
+      );
+
+      if (result.isEmpty) return null;
+      return FoodItem.fromMap(result.first);
+    } catch (e) {
+      print('❌ Error getting food item by name: $e');
+      return null;
     }
   }
 }

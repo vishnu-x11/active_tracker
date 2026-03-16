@@ -94,6 +94,44 @@ class BmiResultModel extends HiveObject {
     );
   }
 
+  /// Convert model to map for SQLite/Sync
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'dateKey': dateKey,
+      'bmi': bmi,
+      'weight': weight,
+      'height': height,
+      'dailyCalories': dailyCalories,
+      'proteinGrams': proteinGrams,
+      'fatGrams': fatGrams,
+      'carbsGrams': carbsGrams,
+      'bmiCategory': bmiCategory,
+      'timestamp': timestamp.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  /// Create model from map
+  factory BmiResultModel.fromMap(Map<String, dynamic> map) {
+    return BmiResultModel(
+      userId: map['userId'] as String,
+      dateKey: map['dateKey'] as String,
+      bmi: (map['bmi'] as num).toDouble(),
+      weight: (map['weight'] as num).toDouble(),
+      height: (map['height'] as num).toDouble(),
+      dailyCalories: (map['dailyCalories'] as num).toDouble(),
+      proteinGrams: (map['proteinGrams'] as num).toDouble(),
+      fatGrams: (map['fatGrams'] as num).toDouble(),
+      carbsGrams: (map['carbsGrams'] as num).toDouble(),
+      bmiCategory: map['bmiCategory'] as String,
+      timestamp: DateTime.parse(map['timestamp'] as String),
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
+    );
+  }
+
   @override
   String toString() {
     return 'BmiResultModel(userId: $userId, dateKey: $dateKey, bmi: $bmi, category: $bmiCategory)';

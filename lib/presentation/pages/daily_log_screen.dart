@@ -125,7 +125,7 @@ class DailyLogScreen extends StatelessWidget {
               radius: 28,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               child: Text(
-                '${controller.getGoalsMetCount()}/4',
+                '${controller.getGoalsMetCount()}/5',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -144,6 +144,7 @@ class DailyLogScreen extends StatelessWidget {
       {'key': 'protein', 'label': 'Protein', 'icon': Icons.egg_alt},
       {'key': 'water', 'label': 'Hydration', 'icon': Icons.water_drop},
       {'key': 'workout', 'label': 'Workout', 'icon': Icons.fitness_center},
+      {'key': 'calories_burned', 'label': 'Burned', 'icon': Icons.local_fire_department},
     ];
 
     return GridView.builder(

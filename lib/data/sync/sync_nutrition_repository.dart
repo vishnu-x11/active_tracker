@@ -1,4 +1,5 @@
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
+import 'package:active_tracker/data/models/sqlite/food_item.dart';
 import 'package:active_tracker/data/repository_impl/nutrition_repository_impl.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 
@@ -159,5 +160,15 @@ class SyncNutritionRepository implements NutritionRepository {
       print('❌ Error getting food logs for date range: $e');
       return [];
     }
+  }
+
+  @override
+  Future<List<FoodItem>> searchFoodItems(String query) async {
+    return await _local.searchFoodItems(query);
+  }
+
+  @override
+  Future<FoodItem?> getFoodItemByName(String name) async {
+    return await _local.getFoodItemByName(name);
   }
 }

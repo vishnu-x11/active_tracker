@@ -137,6 +137,11 @@ class NutritionScreen extends StatelessWidget {
     final fatController = TextEditingController();
     final carbsController = TextEditingController();
 
+    // Add listener for search
+    nameController.addListener(() {
+      controller.searchFood(nameController.text.trim());
+    });
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -147,8 +152,46 @@ class NutritionScreen extends StatelessWidget {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(hintText: 'Food name'),
+                decoration: const InputDecoration(
+                  hintText: 'Food name',
+                  suffixIcon: Icon(Icons.search),
+                ),
               ),
+              
+              // Suggestions List
+              Obx(() {
+                if (controller.foodSuggestions.isEmpty) return const SizedBox.shrink();
+                
+                return Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: controller.foodSuggestions.length,
+                    itemBuilder: (context, index) {
+                      final item = controller.foodSuggestions[index];
+                      return ListTile(
+                        dense: true,
+                        title: Text(item.name),
+                        subtitle: Text('${item.calories} kcal | P: ${item.protein}g'),
+                        onTap: () {
+                          // Auto-fill fields
+                          nameController.text = item.name;
+                          caloriesController.text = item.calories.toString();
+                          proteinController.text = item.protein.toString();
+                          fatController.text = item.fat.toString();
+                          carbsController.text = item.carbs.toString();
+                          
+                          // Clear suggestions
+                          controller.clearSuggestions();
+                        },
+                      );
+                    },
+                  ),
+                );
+              }),
+              
+              const Divider(),
+              
               TextField(
                 controller: caloriesController,
                 keyboardType: TextInputType.number,
@@ -174,7 +217,10 @@ class NutritionScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              controller.clearSuggestions();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -187,6 +233,7 @@ class NutritionScreen extends StatelessWidget {
                 carbs: double.tryParse(carbsController.text) ?? 0,
                 quantity: 1,
               );
+              controller.clearSuggestions();
               Navigator.pop(context);
             },
             child: const Text('Add'),

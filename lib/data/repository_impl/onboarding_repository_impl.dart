@@ -1,5 +1,7 @@
 import 'package:active_tracker/data/models/hive/user_profile_model.dart';
 import 'package:active_tracker/data/local/hive_manager.dart';
+import 'package:active_tracker/data/sync/sync_manager.dart';
+import 'package:active_tracker/data/sync/firebase_sync.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:hive/hive.dart';
 
@@ -34,6 +36,7 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     required double height,
     required int goalType,
     required int intensityLevel,
+    required double burnedCalorieGoal,
   }) async {
     try {
       final now = DateTime.now();
@@ -49,12 +52,23 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
         proteinGoal: 150.0,
         fatGoal: 65.0,
         carbsGoal: 250.0,
+        burnedCalorieGoal: burnedCalorieGoal,
         waterGoalMl: (weight * 35).toInt() + 500,
         createdAt: now,
         updatedAt: now,
       );
 
       await _userBox.put('userProfile', profile);
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: userId,
+        operationType: 'update',
+        tableName: 'user_profiles',
+        entityId: userId,
+        data: profile.toMap(),
+      );
+
       print('✅ User profile saved');
     } catch (e) {
       print('❌ Error saving user profile: $e');
@@ -86,6 +100,16 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       );
 
       await _userBox.put('userProfile', updated);
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: updated.userId,
+        operationType: 'update',
+        tableName: 'user_profiles',
+        entityId: updated.userId,
+        data: updated.toMap(),
+      );
+
       print('✅ User goals updated');
     } catch (e) {
       print('❌ Error updating user goals: $e');
@@ -104,7 +128,7 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     }
   }
 
-  /// Get current user profile
+  @override
   UserProfileModel? getUserProfileSync() {
     try {
       return _userBox.get('userProfile');
@@ -122,6 +146,22 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     } catch (e) {
       print('❌ Error clearing user profile: $e');
       rethrow;
+    }
+  }
+
+  @override
+  Future<bool> syncUserProfileFromCloud(String userId) async {
+    try {
+      final cloudProfile = await FirebaseSync().pullUserProfile(userId);
+      if (cloudProfile != null) {
+        await _userBox.put('userProfile', cloudProfile);
+        print('✅ User profile synced from cloud for: $userId');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Error syncing profile from cloud: $e');
+      return false;
     }
   }
 }

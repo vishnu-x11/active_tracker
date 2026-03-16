@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
+import 'package:active_tracker/data/models/sqlite/food_item.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
 
@@ -17,6 +18,10 @@ class NutritionController extends GetxController {
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final selectedDate = DateTime.now().obs;
+  
+  // Library search
+  final foodSuggestions = <FoodItem>[].obs;
+  final isSearching = false.obs;
 
   // ============ CONSTRUCTOR ============
   NutritionController(this._repository);
@@ -171,6 +176,41 @@ class NutritionController extends GetxController {
   /// Get today
   void goToday() {
     selectedDate.value = DateTime.now();
+  }
+
+  // ============ SEARCH & AUTO-FILL ============
+
+  /// Search for food in library
+  Future<void> searchFood(String query) async {
+    if (query.isEmpty) {
+      foodSuggestions.clear();
+      return;
+    }
+
+    try {
+      isSearching.value = true;
+      final suggestions = await _repository.searchFoodItems(query);
+      foodSuggestions.value = suggestions;
+    } catch (e) {
+      print('❌ Error searching food: $e');
+    } finally {
+      isSearching.value = false;
+    }
+  }
+
+  /// Get specific food details
+  Future<FoodItem?> getFoodDetails(String name) async {
+    try {
+      return await _repository.getFoodItemByName(name);
+    } catch (e) {
+      print('❌ Error getting food details: $e');
+      return null;
+    }
+  }
+
+  /// Clear suggestions
+  void clearSuggestions() {
+    foodSuggestions.clear();
   }
 
   // ============ HELPER METHODS ============

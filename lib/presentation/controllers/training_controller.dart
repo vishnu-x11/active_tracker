@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
+import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
 
@@ -17,6 +18,26 @@ class TrainingController extends GetxController {
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final selectedDate = DateTime.now().obs;
+  
+  // Exercise Categorization
+  final categories = <String>[
+    'Pushups',
+    'Pullups',
+    'Shoulder',
+    'Triceps',
+    'Fore Arms',
+    'Biceps',
+    'Leg',
+    'Abs',
+    'Back',
+    'Chest',
+    'General',
+    'Cardio'
+  ].obs;
+  final selectedCategory = ''.obs;
+  final exercisesByCategory = <ExerciseDefinition>[].obs;
+  final exerciseSuggestions = <ExerciseDefinition>[].obs;
+  final isSearching = false.obs;
 
   // ============ CONSTRUCTOR ============
   TrainingController(this._repository);
@@ -114,6 +135,7 @@ class TrainingController extends GetxController {
   /// Parameters: exerciseType, reps, sets, optional weight (kg)
   Future<void> addExercise({
     required String exerciseType,
+    required String category,
     required int reps,
     required int sets,
     double? weight,
@@ -128,6 +150,7 @@ class TrainingController extends GetxController {
         userId: 'current-user-id',
         dateKey: dateKey,
         exerciseType: exerciseType,
+        category: category,
         reps: reps,
         sets: sets,
         weight: weight,
@@ -217,5 +240,81 @@ class TrainingController extends GetxController {
   /// Get all exercises for selected date
   List<Exercise> getAllExercises() {
     return exercises.toList();
+  }
+
+  // ============ SEARCH & AUTO-FILL ============
+
+  /// Search for exercises in library
+  Future<void> searchExercises(String query) async {
+    if (query.isEmpty) {
+      exerciseSuggestions.clear();
+      return;
+    }
+
+    try {
+      isSearching.value = true;
+      final suggestions = await _repository.searchExercises(query);
+      exerciseSuggestions.value = suggestions;
+    } catch (e) {
+      print('❌ Error searching exercises: $e');
+    } finally {
+      isSearching.value = false;
+    }
+  }
+
+  /// Get specific exercise details
+  Future<ExerciseDefinition?> getExerciseDetails(String name) async {
+    try {
+      return await _repository.getExerciseDefinitionByName(name);
+    } catch (e) {
+      print('❌ Error getting exercise details: $e');
+      return null;
+    }
+  }
+
+  /// Clear suggestions
+  void clearSuggestions() {
+    exerciseSuggestions.clear();
+  }
+
+  // ============ CATEGORIZATION ============
+
+  /// Select a category and load its exercises
+  Future<void> selectCategory(String category) async {
+    selectedCategory.value = category;
+    await loadExercisesByCategory(category);
+  }
+
+  /// Load exercises for a specific category
+  Future<void> loadExercisesByCategory(String category) async {
+    try {
+      isLoading.value = true;
+      final list = await _repository.getExercisesByCategory(category);
+      exercisesByCategory.value = list;
+    } catch (e) {
+      print('❌ Error loading exercises by category: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Clear categorization state
+  void clearSelection() {
+    selectedCategory.value = '';
+    exercisesByCategory.clear();
+  }
+
+  // ============ UI HELPERS ============
+
+  /// Group exercises by category/type
+  Map<String, List<Exercise>> getGroupedExercises() {
+    final grouped = <String, List<Exercise>>{};
+    for (final ex in exercises) {
+      if (!grouped.containsKey(ex.category)) {
+        grouped[ex.category] = [];
+      }
+      grouped[ex.category]!.add(ex);
+    }
+    return grouped;
   }
 }
