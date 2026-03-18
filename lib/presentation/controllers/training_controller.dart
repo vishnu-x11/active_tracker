@@ -1,14 +1,19 @@
+import 'package:flutter/material.dart' hide DateUtils;
 import 'package:get/get.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
 import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
+import 'package:active_tracker/presentation/controllers/dashboard_controller.dart';
+import 'package:active_tracker/utils/health_utils.dart';
 
 /// Manages training data and workout tracking
 class TrainingController extends GetxController {
   // ============ DEPENDENCIES ============
   final TrainingRepository _repository;
+  final DailyLogRepository _dailyLogRepository;
 
   // ============ OBSERVABLE STATE ============
   final workoutLogs = <WorkoutLog>[].obs;
@@ -40,7 +45,7 @@ class TrainingController extends GetxController {
   final isSearching = false.obs;
 
   // ============ CONSTRUCTOR ============
-  TrainingController(this._repository);
+  TrainingController(this._repository, this._dailyLogRepository);
 
   // ============ LIFECYCLE ============
   @override
@@ -107,7 +112,7 @@ class TrainingController extends GetxController {
       final dateKey = DateUtils.getDateKey(date: selectedDate.value);
 
       final workout = WorkoutLog(
-        userId: 'current-user-id',
+        userId: Get.find<AuthController>().userId.value,
         dateKey: dateKey,
         workoutName: workoutName,
         duration: duration,
@@ -119,12 +124,32 @@ class TrainingController extends GetxController {
       );
 
       await _repository.addWorkoutLog(workout);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
       await loadTrainingData();
+      _refreshDashboard();
 
       print('✅ Workout added: $workoutName');
     } catch (e) {
       errorMessage.value = 'Failed to add workout: $e';
       print('❌ Error adding workout: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Update existing workout
+  Future<void> updateWorkout(WorkoutLog log) async {
+    try {
+      isLoading.value = true;
+      await _repository.updateWorkoutLog(log);
+      await _dailyLogRepository.calculateAndSaveDailySummary(log.dateKey);
+      await loadTrainingData();
+      _refreshDashboard();
+      print('✅ Workout updated: ${log.workoutName}');
+    } catch (e) {
+      errorMessage.value = 'Failed to update workout: $e';
+      print('❌ Error updating workout: $e');
       rethrow;
     } finally {
       isLoading.value = false;
@@ -147,7 +172,7 @@ class TrainingController extends GetxController {
       final dateKey = DateUtils.getDateKey(date: selectedDate.value);
 
       final exercise = Exercise(
-        userId: 'current-user-id',
+        userId: Get.find<AuthController>().userId.value,
         dateKey: dateKey,
         exerciseType: exerciseType,
         category: category,
@@ -160,7 +185,9 @@ class TrainingController extends GetxController {
       );
 
       await _repository.addExercise(exercise);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
       await loadTrainingData();
+      _refreshDashboard();
 
       print('✅ Exercise added: $exerciseType ($reps reps x $sets sets)');
     } catch (e) {
@@ -177,7 +204,10 @@ class TrainingController extends GetxController {
     try {
       isLoading.value = true;
       await _repository.deleteWorkoutLog(id);
+      final dateKey = DateUtils.getDateKey(date: selectedDate.value);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
       await loadTrainingData();
+      _refreshDashboard();
       print('✅ Workout deleted');
     } catch (e) {
       errorMessage.value = 'Failed to delete workout: $e';
@@ -188,19 +218,73 @@ class TrainingController extends GetxController {
     }
   }
 
+  /// Update existing exercise
+  Future<void> updateExercise(Exercise exercise) async {
+    try {
+      isLoading.value = true;
+      await _repository.updateExercise(exercise);
+      final dateKey = DateUtils.getDateKey(date: selectedDate.value);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
+      await loadTrainingData();
+      _refreshDashboard();
+      print('✅ Exercise updated: ${exercise.exerciseType}');
+    } catch (e) {
+      errorMessage.value = 'Failed to update exercise: $e';
+      print('❌ Error updating exercise: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Delete exercise
+  Future<void> deleteExercise(int id) async {
+    try {
+      isLoading.value = true;
+      await _repository.deleteExercise(id);
+      final dateKey = DateUtils.getDateKey(date: selectedDate.value);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
+      await loadTrainingData();
+      _refreshDashboard();
+      print('✅ Exercise deleted');
+    } catch (e) {
+      errorMessage.value = 'Failed to delete exercise: $e';
+      print('❌ Error deleting exercise: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   // ============ HELPER METHODS ============
 
   /// Calculate totals
   void _calculateTotals() {
-    totalDuration.value = workoutLogs.fold(
+    // 1. Sum up general workout sessions
+    int workoutDuration = workoutLogs.fold(
       0,
           (sum, log) => sum + log.duration,
     );
 
-    totalCaloriesBurned.value = workoutLogs.fold(
+    double workoutCalories = workoutLogs.fold(
       0.0,
           (sum, log) => sum + log.caloriesBurned,
     );
+
+    // 2. Sum up individual exercise estimates
+    int exerciseDuration = exercises.fold(
+      0,
+          (sum, ex) => sum + HealthUtils.estimateExerciseDuration(ex),
+    );
+
+    double exerciseCalories = exercises.fold(
+      0.0,
+          (sum, ex) => sum + HealthUtils.estimateExerciseCalories(ex),
+    );
+
+    // 3. Update reactive totals
+    totalDuration.value = workoutDuration + exerciseDuration;
+    totalCaloriesBurned.value = workoutCalories + exerciseCalories;
   }
 
   /// Navigate to previous day
@@ -216,6 +300,19 @@ class TrainingController extends GetxController {
   /// Go to today
   void goToday() {
     selectedDate.value = DateTime.now();
+  }
+
+  /// Select date using calendar picker
+  Future<void> selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate.value,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != selectedDate.value) {
+      selectedDate.value = picked;
+    }
   }
 
   /// Get formatted date
@@ -254,7 +351,12 @@ class TrainingController extends GetxController {
     try {
       isSearching.value = true;
       final suggestions = await _repository.searchExercises(query);
-      exerciseSuggestions.value = suggestions;
+      
+      // Deduplicate: remove already added exercises for the day
+      final addedExerciseNames = exercises.map((e) => e.exerciseType).toSet();
+      exerciseSuggestions.value = suggestions
+          .where((s) => !addedExerciseNames.contains(s.name))
+          .toList();
     } catch (e) {
       print('❌ Error searching exercises: $e');
     } finally {
@@ -290,7 +392,12 @@ class TrainingController extends GetxController {
     try {
       isLoading.value = true;
       final list = await _repository.getExercisesByCategory(category);
-      exercisesByCategory.value = list;
+      
+      // Deduplicate: remove already added exercises for the day
+      final addedExerciseNames = exercises.map((e) => e.exerciseType).toSet();
+      exercisesByCategory.value = list
+          .where((s) => !addedExerciseNames.contains(s.name))
+          .toList();
     } catch (e) {
       print('❌ Error loading exercises by category: $e');
     } finally {
@@ -316,5 +423,16 @@ class TrainingController extends GetxController {
       grouped[ex.category]!.add(ex);
     }
     return grouped;
+  }
+
+  /// Trigger dashboard refresh
+  void _refreshDashboard() {
+    try {
+      if (Get.isRegistered<DashboardController>(tag: 'dashboard')) {
+        Get.find<DashboardController>(tag: 'dashboard').loadDashboardData();
+      }
+    } catch (e) {
+      print('⚠️ Could not refresh dashboard from TrainingController: $e');
+    }
   }
 }

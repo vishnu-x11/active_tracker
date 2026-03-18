@@ -25,6 +25,14 @@ class SignupScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      height: 80,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     'Join Active Health',

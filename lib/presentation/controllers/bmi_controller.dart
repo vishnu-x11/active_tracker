@@ -3,6 +3,7 @@ import 'package:active_tracker/data/models/sqlite/body_weight_log.dart';
 import 'package:active_tracker/data/models/hive/bmi_result_model.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 
 /// Manages BMI calculation and weight tracking
 class BmiController extends GetxController {
@@ -81,7 +82,7 @@ class BmiController extends GetxController {
       isLoading.value = true;
 
       await _repository.calculateAndSaveBmi(
-        userId: 'current-user-id',
+        userId: Get.find<AuthController>().userId.value,
         dateKey: DateUtils.getDateKey(),
         weight: newWeight,
         height: newHeight,

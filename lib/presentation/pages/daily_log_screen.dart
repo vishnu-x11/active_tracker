@@ -28,12 +28,13 @@ class DailyLogScreen extends StatelessWidget {
             child: Column(
               children: [
                 // Date Navigator
-                DateNavigator(
+                Obx(() => DateNavigator(
                   selectedDate: controller.selectedDate.value,
                   onPrevious: controller.previousDay,
                   onNext: controller.nextDay,
                   onToday: controller.goToday,
-                ),
+                  onDateTap: () => controller.selectDate(context),
+                )),
 
                 Expanded(
                   child: Obx(() {

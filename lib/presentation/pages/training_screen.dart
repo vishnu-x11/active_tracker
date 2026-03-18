@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:active_tracker/data/models/sqlite/workout_log.dart';
+import 'package:active_tracker/data/models/sqlite/exercise.dart';
 import 'package:active_tracker/presentation/controllers/training_controller.dart';
 import 'package:active_tracker/config/constants.dart';
 import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/presentation/widgets/date_navigator.dart';
+import 'package:active_tracker/presentation/widgets/common/container_widget.dart';
+import 'package:active_tracker/presentation/widgets/common/text_widget.dart';
+import 'package:active_tracker/presentation/widgets/common/button_widget.dart';
+import 'package:active_tracker/utils/app_colors.dart';
 
 class TrainingScreen extends StatelessWidget {
   const TrainingScreen({Key? key}) : super(key: key);
@@ -28,12 +34,13 @@ class TrainingScreen extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                DateNavigator(
+                Obx(() => DateNavigator(
                   selectedDate: controller.selectedDate.value,
                   onPrevious: controller.previousDay,
                   onNext: controller.nextDay,
                   onToday: controller.goToday,
-                ),
+                  onDateTap: () => controller.selectDate(context),
+                )),
                 Expanded(
                   child: Obx(() {
                     if (controller.isLoading.value) {
@@ -83,11 +90,10 @@ class TrainingScreen extends StatelessWidget {
                               ),
 
                             // Workout Logs Section
-                            Text(
+                            const TextWidget(
                               'Workouts',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
                             ),
                             const SizedBox(height: 8),
                             if (controller.workoutLogs.isEmpty)
@@ -99,27 +105,46 @@ class TrainingScreen extends StatelessWidget {
                               )
                             else
                               ...controller.workoutLogs.map(
-                                (log) => Card(
-                                  child: ListTile(
-                                    leading: const Icon(Icons.fitness_center),
-                                    title: Text(log.workoutName),
-                                    subtitle: Text('${log.duration} min • ${log.caloriesBurned.toStringAsFixed(0)} kcal'),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      onPressed: () => controller.deleteWorkout(log.id ?? 0),
+                                (log) => ContainerWidget(
+                                  backgroundColor: AppColors.white,
+                                  borderColor: const Color(0xFFEEEEEE),
+                                  borderRadius: 16,
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(4),
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.fitness_center, color: AppColors.primary),
+                                      title: TextWidget(log.workoutName, fontWeight: FontWeight.w600),
+                                      subtitle: TextWidget(
+                                        '${log.duration} min • ${log.caloriesBurned.toStringAsFixed(0)} kcal',
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                                            onPressed: () => _showAddWorkoutDialog(context, workoutLog: log),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                            onPressed: () => controller.deleteWorkout(log.id ?? 0),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
 
                             const SizedBox(height: 16),
 
                              // Exercises Section
-                            Text(
+                            const TextWidget(
                               'Exercises',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
                             ),
                             const SizedBox(height: 8),
                             if (controller.exercises.isEmpty)
@@ -154,52 +179,91 @@ class TrainingScreen extends StatelessWidget {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
+                                    ContainerWidget(
                                       width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      margin: const EdgeInsets.only(top: 16, bottom: 8),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(AppRadius.md),
-                                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(getCategoryIcon(category), size: 18, color: Theme.of(context).colorScheme.primary),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            category.toUpperCase(),
-                                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                              color: Theme.of(context).colorScheme.primary,
-                                              letterSpacing: 1.2,
-                                              fontWeight: FontWeight.bold,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      margin: const EdgeInsets.only(top: 20, bottom: 12),
+                                      backgroundColor: AppColors.primaryWith20,
+                                      borderColor: AppColors.primaryWith50,
+                                      borderRadius: 12,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(getCategoryIcon(category), size: 20, color: AppColors.primary),
+                                            const SizedBox(width: 12),
+                                            TextWidget(
+                                              category.toUpperCase(),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.primary,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    ...exercises.map((ex) => Card(
-                                      child: ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-                                          child: Icon(getCategoryIcon(category), size: 16, color: Theme.of(context).colorScheme.secondary),
+                                            const Spacer(),
+                                            IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 20),
+                                              onPressed: () {
+                                                controller.selectCategory(category);
+                                                _showAddExerciseDialog(context, initialCategory: category);
+                                              },
+                                            ),
+                                          ],
                                         ),
-                                        title: Text(ex.exerciseType),
-                                        subtitle: Text('${ex.reps} reps × ${ex.sets} sets'),
-                                        trailing: ex.weight != null
-                                            ? Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: Theme.of(context).colorScheme.surfaceVariant,
-                                                  borderRadius: BorderRadius.circular(4),
+                                      ],
+                                    ),
+                                    ...exercises.map((ex) => ContainerWidget(
+                                      backgroundColor: AppColors.white,
+                                      borderColor: const Color(0xFFEEEEEE),
+                                      borderRadius: 16,
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(4),
+                                      children: [
+                                        ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundColor: AppColors.primaryWith20,
+                                            child: Icon(getCategoryIcon(category), size: 18, color: AppColors.primary),
+                                          ),
+                                          title: TextWidget(ex.exerciseType, fontWeight: FontWeight.w600),
+                                          subtitle: TextWidget(
+                                            '${ex.reps} reps × ${ex.sets} sets',
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (ex.weight != null)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    margin: const EdgeInsets.only(right: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFF5F5F5),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: TextWidget(
+                                                      '${ex.weight!.toStringAsFixed(1)} kg',
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: AppColors.textPrimary,
+                                                    ),
+                                                  ),
+                                                IconButton(
+                                                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                                                  onPressed: () => _showEditExerciseDialog(context, ex),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
                                                 ),
-                                                child: Text(
-                                                  '${ex.weight!.toStringAsFixed(1)} kg',
-                                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                                                const SizedBox(width: 8),
+                                                IconButton(
+                                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                                  onPressed: () => controller.deleteExercise(ex.id ?? 0),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
                                                 ),
-                                              )
-                                            : null,
-                                      ),
+                                              ],
+                                            ),
+                                        ),
+                                      ],
                                     )),
                                   ],
                                 );
@@ -223,12 +287,16 @@ class TrainingScreen extends StatelessWidget {
                   heroTag: 'add_exercise',
                   onPressed: () => _showAddExerciseDialog(context),
                   tooltip: 'Add Exercise',
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
                   child: const Icon(Icons.add),
                 ),
                 FloatingActionButton(
                   heroTag: 'add_workout',
                   onPressed: () => _showAddWorkoutDialog(context),
                   tooltip: 'Add General Workout Session',
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
                   child: const Icon(Icons.playlist_add),
                 ),
               ],
@@ -240,18 +308,35 @@ class TrainingScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard(BuildContext context, IconData icon, String label, String value) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppPadding.md),
-        child: Column(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 4),
-            Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            Text(label, style: Theme.of(context).textTheme.labelMedium),
-          ],
+    return ContainerWidget(
+      backgroundColor: AppColors.white,
+      borderColor: AppColors.transparent,
+      borderWidth: 0,
+      borderRadius: 16,
+      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.zero,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
-      ),
+      ],
+      children: [
+        Icon(icon, color: AppColors.primary, size: 24),
+        const SizedBox(height: 8),
+        TextWidget(
+          value,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
+        TextWidget(
+          label,
+          fontSize: 12,
+          color: AppColors.textSecondary,
+        ),
+      ],
     );
   }
 
@@ -271,15 +356,15 @@ class TrainingScreen extends StatelessWidget {
     );
   }
 
-  void _showAddWorkoutDialog(BuildContext context) {
+  void _showAddWorkoutDialog(BuildContext context, {WorkoutLog? workoutLog}) {
     final controller = Get.find<TrainingController>(tag: 'training');
-    final nameCtrl = TextEditingController();
-    final durationCtrl = TextEditingController();
-    final caloriesCtrl = TextEditingController();
+    final nameCtrl = TextEditingController(text: workoutLog?.workoutName ?? '');
+    final durationCtrl = TextEditingController(text: workoutLog?.duration.toString() ?? '');
+    final caloriesCtrl = TextEditingController(text: workoutLog?.caloriesBurned.toString() ?? '');
 
     Get.dialog(
       AlertDialog(
-        title: const Text('Add Workout'),
+        title: Text(workoutLog == null ? 'Add Workout' : 'Edit Workout'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -291,32 +376,46 @@ class TrainingScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
-          FilledButton(
+          TextButton(onPressed: () => Get.back(), child: const TextWidget('Cancel', color: AppColors.textSecondary)),
+          ButtonWidget(
+            width: 100,
+            height: 40,
             onPressed: () {
-              controller.addWorkout(
-                workoutName: nameCtrl.text.trim(),
-                duration: int.tryParse(durationCtrl.text) ?? 0,
-                caloriesBurned: double.tryParse(caloriesCtrl.text) ?? 0,
-              );
+              if (workoutLog == null) {
+                controller.addWorkout(
+                  workoutName: nameCtrl.text.trim(),
+                  duration: int.tryParse(durationCtrl.text) ?? 0,
+                  caloriesBurned: double.tryParse(caloriesCtrl.text) ?? 0,
+                );
+              } else {
+                final updated = workoutLog.copyWith(
+                  workoutName: nameCtrl.text.trim(),
+                  duration: int.tryParse(durationCtrl.text) ?? 0,
+                  caloriesBurned: double.tryParse(caloriesCtrl.text) ?? 0,
+                  updatedAt: DateTime.now().millisecondsSinceEpoch,
+                );
+                controller.updateWorkout(updated);
+              }
               Get.back();
             },
-            child: const Text('Add'),
+            textWidget: TextWidget(workoutLog == null ? 'Add' : 'Update', color: AppColors.white, fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
   }
 
-  void _showAddExerciseDialog(BuildContext context) {
+  void _showAddExerciseDialog(BuildContext context, {String? initialCategory}) {
     final controller = Get.find<TrainingController>(tag: 'training');
     final repsCtrl = TextEditingController(text: '10');
     final setsCtrl = TextEditingController(text: '3');
     final weightCtrl = TextEditingController();
     final searchCtrl = TextEditingController();
 
-    // Reset controller state
-    controller.clearSelection();
+    // Reset controller state if no initial category
+    if (initialCategory == null) {
+      controller.clearSelection();
+    }
     controller.clearSuggestions();
 
     Get.dialog(
@@ -419,24 +518,20 @@ class TrainingScreen extends StatelessWidget {
                     itemCount: controller.categories.length,
                     itemBuilder: (context, index) {
                       final category = controller.categories[index];
-                      return InkWell(
-                        onTap: () => controller.selectCategory(category),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
+                      return ContainerWidget(
+                        onPressed: () => controller.selectCategory(category),
+                        backgroundColor: AppColors.primaryWith20,
+                        borderColor: AppColors.primaryWith50,
+                        borderRadius: 12,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          TextWidget(
                             category,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
                           ),
-                        ),
+                        ],
                       );
                     },
                   );
@@ -507,8 +602,10 @@ class TrainingScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
-          FilledButton(
+          TextButton(onPressed: () => Get.back(), child: const TextWidget('Cancel', color: AppColors.textSecondary)),
+          ButtonWidget(
+            width: 100,
+            height: 40,
             onPressed: () {
               controller.addExercise(
                 exerciseType: exercise.name,
@@ -519,7 +616,62 @@ class TrainingScreen extends StatelessWidget {
               );
               Get.back();
             },
-            child: const Text('Log'),
+            textWidget: const TextWidget('Log', color: AppColors.white, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditExerciseDialog(BuildContext context, Exercise exercise) {
+    final controller = Get.find<TrainingController>(tag: 'training');
+    final repsCtrl = TextEditingController(text: exercise.reps.toString());
+    final setsCtrl = TextEditingController(text: exercise.sets.toString());
+    final weightCtrl = TextEditingController(text: exercise.weight?.toString() ?? '');
+
+    Get.dialog(
+      AlertDialog(
+        title: Text('Edit ${exercise.exerciseType}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(exercise.category, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 16),
+            TextField(
+              controller: repsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Reps'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: setsCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Sets'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: weightCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Weight (kg)', suffixText: 'kg'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const TextWidget('Cancel', color: AppColors.textSecondary)),
+          ButtonWidget(
+            width: 100,
+            height: 40,
+            onPressed: () {
+              final updated = exercise.copyWith(
+                reps: int.tryParse(repsCtrl.text) ?? 0,
+                sets: int.tryParse(setsCtrl.text) ?? 1,
+                weight: double.tryParse(weightCtrl.text),
+                updatedAt: DateTime.now().millisecondsSinceEpoch,
+              );
+              controller.updateExercise(updated);
+              Get.back();
+            },
+            textWidget: const TextWidget('Update', color: AppColors.white, fontWeight: FontWeight.w600),
           ),
         ],
       ),

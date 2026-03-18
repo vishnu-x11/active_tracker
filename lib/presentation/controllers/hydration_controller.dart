@@ -1,22 +1,26 @@
 import 'package:get/get.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
+import 'package:active_tracker/data/models/hive/water_log_model.dart';
 import 'package:active_tracker/utils/date_utils.dart';
+import 'package:active_tracker/presentation/controllers/dashboard_controller.dart';
 
 /// Manages hydration tracking and water intake
 class HydrationController extends GetxController {
   // ============ DEPENDENCIES ============
   final HydrationRepository _repository;
+  final DailyLogRepository _dailyLogRepository;
 
   // ============ OBSERVABLE STATE ============
   final totalWater = 0.0.obs;
   final waterGoal = 2500.0.obs;
   final waterProgress = 0.0.obs;
+  final waterLogs = <WaterLogModel>[].obs;
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final selectedDate = DateTime.now().obs;
 
   // ============ CONSTRUCTOR ============
-  HydrationController(this._repository);
+  HydrationController(this._repository, this._dailyLogRepository);
 
   // ============ LIFECYCLE ============
   @override
@@ -55,6 +59,7 @@ class HydrationController extends GetxController {
 
       totalWater.value = await _repository.getTotalWaterForDate(dateKey);
       waterGoal.value = await _repository.getWaterGoal();
+      waterLogs.value = await _repository.getWaterLogsForDate(dateKey);
 
       _updateProgress();
       print('✅ Hydration data loaded: ${totalWater.value}ml');
@@ -73,7 +78,9 @@ class HydrationController extends GetxController {
 
       final dateKey = DateUtils.getDateKey(date: selectedDate.value);
       await _repository.logWaterIntake(dateKey, ml);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
       await loadHydrationData();
+      _refreshDashboard();
 
       print('✅ Water logged: ${ml}ml');
     } catch (e) {
@@ -120,6 +127,49 @@ class HydrationController extends GetxController {
       errorMessage.value = 'Failed to update goal: $e';
       print('❌ Error updating water goal: $e');
       rethrow;
+    }
+  }
+
+  /// Update water log amount
+  Future<void> updateWaterAmount(WaterLogModel log, double newAmount) async {
+    try {
+      isLoading.value = true;
+      final updatedLog = log.copyWith(mlConsumed: newAmount);
+      await _repository.updateWaterLog(updatedLog);
+      
+      final dateKey = DateUtils.getDateKey(date: selectedDate.value);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
+      await loadHydrationData();
+      _refreshDashboard();
+      
+      print('✅ Water log updated to ${newAmount}ml');
+    } catch (e) {
+      errorMessage.value = 'Failed to update water: $e';
+      print('❌ Error updating water: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Delete water log
+  Future<void> deleteLog(WaterLogModel log) async {
+    try {
+      isLoading.value = true;
+      await _repository.deleteWaterLog(log);
+      
+      final dateKey = DateUtils.getDateKey(date: selectedDate.value);
+      await _dailyLogRepository.calculateAndSaveDailySummary(dateKey);
+      await loadHydrationData();
+      _refreshDashboard();
+      
+      print('✅ Water log deleted');
+    } catch (e) {
+      errorMessage.value = 'Failed to delete water: $e';
+      print('❌ Error deleting water: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -196,6 +246,17 @@ class HydrationController extends GetxController {
       return '💪 Keep it up, $cups glasses to go!';
     } else {
       return '💧 Start hydrating! $cups glasses left!';
+    }
+  }
+
+  /// Trigger dashboard refresh
+  void _refreshDashboard() {
+    try {
+      if (Get.isRegistered<DashboardController>(tag: 'dashboard')) {
+        Get.find<DashboardController>(tag: 'dashboard').loadDashboardData();
+      }
+    } catch (e) {
+      print('⚠️ Could not refresh dashboard from HydrationController: $e');
     }
   }
 }

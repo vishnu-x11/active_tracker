@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/body_weight_log.dart';
 import 'package:active_tracker/data/models/hive/bmi_result_model.dart';
@@ -11,9 +13,9 @@ import 'package:hive/hive.dart';
 /// Implementation of BmiRepository
 /// Manages BMI calculations and body weight tracking
 class BmiRepositoryImpl implements BmiRepository {
-  final String userId;
+  String get _userId => Get.find<AuthController>().userId.value;
 
-  BmiRepositoryImpl({required this.userId});
+  BmiRepositoryImpl();
 
   /// Get database instance
   Database get _db => SqliteManager.getInstance();
@@ -93,7 +95,7 @@ class BmiRepositoryImpl implements BmiRepository {
       BmiResultModel? latest;
 
       for (var result in _bmiBox.values) {
-        if (result.userId == userId) {
+        if (result.userId == _userId) {
           if (latest == null ||
               result.timestamp.isAfter(latest.timestamp)) {
             latest = result;
@@ -119,7 +121,7 @@ class BmiRepositoryImpl implements BmiRepository {
 
       for (var dateKey in dates) {
         final result = _bmiBox.get('${dateKey}_bmi');
-        if (result != null && result.userId == userId) {
+        if (result != null && result.userId == _userId) {
           results.add(result);
         }
       }
@@ -136,7 +138,7 @@ class BmiRepositoryImpl implements BmiRepository {
   @override
   Future<void> addBodyWeightLog(BodyWeightLog bodyWeightLog) async {
     try {
-      final log = bodyWeightLog.copyWith(userId: userId);
+      final log = bodyWeightLog.copyWith(userId: _userId);
 
       final id = await _db.insert(
         'body_weight_logs',
@@ -146,7 +148,7 @@ class BmiRepositoryImpl implements BmiRepository {
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'create',
         tableName: 'body_weight_logs',
         entityId: id.toString(),
@@ -169,7 +171,7 @@ class BmiRepositoryImpl implements BmiRepository {
       final result = await _db.query(
         'body_weight_logs',
         where: 'userId = ? AND dateKey BETWEEN ? AND ?',
-        whereArgs: [userId, startDate, endDate],
+        whereArgs: [_userId, startDate, endDate],
         orderBy: 'dateKey DESC',
       );
 
@@ -206,7 +208,7 @@ class BmiRepositoryImpl implements BmiRepository {
       final result = await _db.query(
         'body_weight_logs',
         where: 'userId = ?',
-        whereArgs: [userId],
+        whereArgs: [_userId],
         orderBy: 'dateKey DESC',
         limit: 1,
       );

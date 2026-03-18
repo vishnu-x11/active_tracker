@@ -16,7 +16,71 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          // App Logo & Profile Image
+          Center(
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () => authController.pickAndUploadProfileImage(),
+                  child: Stack(
+                    children: [
+                      Obx(() => CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                            backgroundImage: authController.profileImageUrl.value != null
+                                ? NetworkImage(authController.profileImageUrl.value!)
+                                : null,
+                            child: authController.profileImageUrl.value == null
+                                ? const Icon(Icons.person, size: 50)
+                                : null,
+                          )),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                        ),
+                      ),
+                      Obx(() {
+                        if (authController.isLoading.value) {
+                          return Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Image.asset(
+                  'assets/images/logo.png',
+                  height: 60,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Active Health',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
           _buildSectionHeader(context, 'Account'),
           ListTile(
             leading: const Icon(Icons.person_outline),
@@ -58,7 +122,7 @@ class SettingsScreen extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('App Version'),
-            trailing: Text('3.2.0'),
+            trailing: Text('4.0.0'),
           ),
           ListTile(
             leading: const Icon(Icons.description_outlined),

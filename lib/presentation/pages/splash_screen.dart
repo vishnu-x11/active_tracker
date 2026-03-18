@@ -14,7 +14,7 @@ class SplashScreen extends StatelessWidget {
       
       if (authController.isLoggedIn.value) {
         // Use the same smart navigation logic
-        final onboardingRepo = Get.find<OnboardingRepository>(tag: 'onboarding');
+        final onboardingRepo = Get.find<OnboardingRepository>();
         final isComplete = await onboardingRepo.isOnboardingComplete();
         
         if (isComplete) {

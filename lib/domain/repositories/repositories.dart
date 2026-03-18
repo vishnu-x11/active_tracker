@@ -11,6 +11,7 @@ import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/food_item.dart';
 import 'package:active_tracker/data/models/sqlite/exercise_definition.dart';
 import 'package:active_tracker/data/models/hive/user_profile_model.dart';
+import 'package:active_tracker/data/models/hive/water_log_model.dart';
 
 /// Manages user onboarding flow and initial setup
 abstract class OnboardingRepository {
@@ -46,6 +47,9 @@ abstract class OnboardingRepository {
     required double carbsGoal,
     required int waterGoalMl,
   });
+
+  /// Update user profile image URL
+  Future<void> updateUserProfileImage(String imageUrl);
 
   /// Check if user has completed onboarding
   Future<bool> isOnboardingComplete();
@@ -148,6 +152,15 @@ abstract class HydrationRepository {
 
   /// Get water intake history for date range
   Future<Map<String, double>> getWaterHistoryForDateRange(String startDate, String endDate);
+
+  /// Get individual water logs for date
+  Future<List<WaterLogModel>> getWaterLogsForDate(String dateKey);
+
+  /// Update water log
+  Future<void> updateWaterLog(WaterLogModel waterLog);
+
+  /// Delete water log
+  Future<void> deleteWaterLog(WaterLogModel waterLog);
 }
 
 // ============ 5. BMI REPOSITORY ============

@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart' hide DateUtils;
 import 'package:get/get.dart';
 import 'package:active_tracker/data/models/sqlite/daily_log_summary.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:active_tracker/utils/date_utils.dart';
+import 'package:active_tracker/presentation/controllers/dashboard_controller.dart';
 
 /// Manages daily log summaries and mood tracking
 class DailyLogController extends GetxController {
@@ -81,6 +83,8 @@ class DailyLogController extends GetxController {
       final dateKey = DateUtils.getDateKey(date: selectedDate.value);
       await _repository.updateDailyMood(dateKey, newMood);
       mood.value = newMood;
+      
+      _refreshDashboard();
 
       print('✅ Mood updated: $newMood');
     } catch (e) {
@@ -100,6 +104,8 @@ class DailyLogController extends GetxController {
       final dateKey = DateUtils.getDateKey(date: selectedDate.value);
       await _repository.updateDailyNotes(dateKey, newNotes);
       notes.value = newNotes;
+      
+      _refreshDashboard();
 
       print('✅ Notes updated');
     } catch (e) {
@@ -133,6 +139,19 @@ class DailyLogController extends GetxController {
     selectedDate.value = DateTime.now();
   }
 
+  /// Select date using calendar picker
+  Future<void> selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate.value,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && picked != selectedDate.value) {
+      selectedDate.value = picked;
+    }
+  }
+
   /// Set a specific date
   void setSelectedDate(DateTime date) {
     selectedDate.value = date;
@@ -149,7 +168,6 @@ class DailyLogController extends GetxController {
     return goalsMetStatus.values.where((met) => met).length;
   }
 
-  /// Get goals met string
   /// Get goals met string
   String getGoalsMetString() => '${getGoalsMetCount()}/5 goals met';
 
@@ -270,6 +288,17 @@ class DailyLogController extends GetxController {
       return '${difference.inHours} hours ago';
     } else {
       return '${difference.inDays} days ago';
+    }
+  }
+
+  /// Trigger dashboard refresh
+  void _refreshDashboard() {
+    try {
+      if (Get.isRegistered<DashboardController>(tag: 'dashboard')) {
+        Get.find<DashboardController>(tag: 'dashboard').loadDashboardData();
+      }
+    } catch (e) {
+      print('⚠️ Could not refresh dashboard from DailyLogController: $e');
     }
   }
 }

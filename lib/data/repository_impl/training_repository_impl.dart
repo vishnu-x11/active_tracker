@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
@@ -10,9 +12,9 @@ import 'package:active_tracker/utils/date_utils.dart';
 /// Implementation of TrainingRepository
 /// Manages workout logs and exercise tracking using SQLite
 class TrainingRepositoryImpl implements TrainingRepository {
-  final String userId;
+  String get _userId => Get.find<AuthController>().userId.value;
 
-  TrainingRepositoryImpl({required this.userId});
+  TrainingRepositoryImpl();
 
   /// Get database instance
   Database get _db => SqliteManager.getInstance();
@@ -22,7 +24,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> addWorkoutLog(WorkoutLog workoutLog) async {
     try {
-      final log = workoutLog.copyWith(userId: userId);
+      final log = workoutLog.copyWith(userId: _userId);
 
       final id = await _db.insert(
         'workout_logs',
@@ -32,7 +34,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'create',
         tableName: 'workout_logs',
         entityId: id.toString(),
@@ -52,7 +54,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
       final result = await _db.query(
         'workout_logs',
         where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
+        whereArgs: [_userId, dateKey],
         orderBy: 'timestamp DESC',
       );
 
@@ -68,7 +70,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
     try {
       final result = await _db.rawQuery(
         'SELECT COALESCE(SUM(duration), 0) as total FROM workout_logs WHERE userId = ? AND dateKey = ?',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       return (result.first['total'] as int);
@@ -81,17 +83,17 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> updateWorkoutLog(WorkoutLog workoutLog) async {
     try {
-      final log = workoutLog.copyWith(userId: userId);
+      final log = workoutLog.copyWith(userId: _userId);
       await _db.update(
         'workout_logs',
         log.toMap(),
         where: 'id = ? AND userId = ?',
-        whereArgs: [workoutLog.id, userId],
+        whereArgs: [workoutLog.id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'update',
         tableName: 'workout_logs',
         entityId: workoutLog.id.toString(),
@@ -111,12 +113,12 @@ class TrainingRepositoryImpl implements TrainingRepository {
       await _db.delete(
         'workout_logs',
         where: 'id = ? AND userId = ?',
-        whereArgs: [id, userId],
+        whereArgs: [id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'delete',
         tableName: 'workout_logs',
         entityId: id.toString(),
@@ -135,7 +137,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> addExercise(Exercise exercise) async {
     try {
-      final ex = exercise.copyWith(userId: userId);
+      final ex = exercise.copyWith(userId: _userId);
 
       final id = await _db.insert(
         'exercises',
@@ -145,7 +147,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'create',
         tableName: 'exercises',
         entityId: id.toString(),
@@ -165,7 +167,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
       final result = await _db.query(
         'exercises',
         where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
+        whereArgs: [_userId, dateKey],
         orderBy: 'exerciseType ASC',
       );
 
@@ -181,7 +183,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
     try {
       final result = await _db.rawQuery(
         'SELECT COALESCE(SUM(reps * sets), 0) as total FROM exercises WHERE userId = ? AND dateKey = ? AND exerciseType = ?',
-        [userId, dateKey, exerciseType],
+        [_userId, dateKey, exerciseType],
       );
 
       return (result.first['total'] as int);
@@ -194,17 +196,17 @@ class TrainingRepositoryImpl implements TrainingRepository {
   @override
   Future<void> updateExercise(Exercise exercise) async {
     try {
-      final ex = exercise.copyWith(userId: userId);
+      final ex = exercise.copyWith(userId: _userId);
       await _db.update(
         'exercises',
         ex.toMap(),
         where: 'id = ? AND userId = ?',
-        whereArgs: [exercise.id, userId],
+        whereArgs: [exercise.id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'update',
         tableName: 'exercises',
         entityId: exercise.id.toString(),
@@ -224,12 +226,12 @@ class TrainingRepositoryImpl implements TrainingRepository {
       await _db.delete(
         'exercises',
         where: 'id = ? AND userId = ?',
-        whereArgs: [id, userId],
+        whereArgs: [id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'delete',
         tableName: 'exercises',
         entityId: id.toString(),
@@ -256,7 +258,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
         FROM exercises 
         WHERE userId = ? AND dateKey BETWEEN ? AND ?
         GROUP BY exerciseType''',
-        [userId, startDate, endDate],
+        [_userId, startDate, endDate],
       );
 
       final summary = <String, int>{};
@@ -276,7 +278,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
     try {
       final result = await _db.rawQuery(
         'SELECT COALESCE(SUM(caloriesBurned), 0) as total FROM workout_logs WHERE userId = ? AND dateKey = ?',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       return (result.first['total'] as num).toDouble();
@@ -328,7 +330,7 @@ class TrainingRepositoryImpl implements TrainingRepository {
         '''SELECT SUM(CAST(reps AS REAL) * CAST(sets AS REAL) * COALESCE(weight, 0)) as totalVolume 
            FROM exercises 
            WHERE userId = ? AND dateKey = ?''',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       return (result.first['totalVolume'] as num?)?.toDouble() ?? 0.0;

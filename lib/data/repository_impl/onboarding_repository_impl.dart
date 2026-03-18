@@ -118,6 +118,37 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   @override
+  Future<void> updateUserProfileImage(String imageUrl) async {
+    try {
+      final profile = _userBox.get('userProfile');
+      if (profile == null) {
+        throw Exception('User profile not found');
+      }
+
+      final updated = profile.copyWith(
+        imageUrl: imageUrl,
+        updatedAt: DateTime.now(),
+      );
+
+      await _userBox.put('userProfile', updated);
+
+      // Queue for sync
+      await SyncManager().queueOperation(
+        userId: updated.userId,
+        operationType: 'update',
+        tableName: 'user_profiles',
+        entityId: updated.userId,
+        data: updated.toMap(),
+      );
+
+      print('✅ User profile image updated');
+    } catch (e) {
+      print('❌ Error updating profile image: $e');
+      rethrow;
+    }
+  }
+
+  @override
   Future<bool> isOnboardingComplete() async {
     try {
       final profile = _userBox.get('userProfile');

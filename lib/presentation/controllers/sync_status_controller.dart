@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/data/sync/connectivity_monitor.dart';
 import 'package:active_tracker/data/sync/offline_queue_manager.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 
 /// Monitors sync status and connectivity
 class SyncStatusController extends GetxController {
@@ -87,8 +88,8 @@ class SyncStatusController extends GetxController {
 
       print('🔄 Processing ${pendingOperationsCount.value} pending operations');
 
-      // TODO: Implement actual queue processing
-      // await _syncManager.processOfflineQueue('user-id');
+      final userId = Get.find<AuthController>().userId.value;
+      await _syncManager.processOfflineQueue(userId);
 
       await updateStatus();
       print('✅ Pending operations processed');
@@ -108,8 +109,8 @@ class SyncStatusController extends GetxController {
 
       print('🔄 Force syncing...');
 
-      // TODO: Implement actual force sync
-      // await _syncManager.forceSync('user-id');
+      final userId = Get.find<AuthController>().userId.value;
+      await _syncManager.forceSync(userId);
 
       await updateStatus();
       print('✅ Force sync completed');

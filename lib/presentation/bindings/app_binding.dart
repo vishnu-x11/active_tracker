@@ -73,33 +73,29 @@ class AppBinding extends Bindings {
       permanent: true,
     );
 
-    // Authentication (permanent global)
-    Get.put<AuthController>(
-      AuthController(),
-      permanent: true,
-    );
-
-    // Onboarding (needed by AuthController and SplashScreen)
+    // ============ CORE REPOSITORIES ============
+    // These must be registered BEFORE controllers that depend on them
+    
     Get.put<OnboardingRepository>(
       OnboardingRepositoryImpl(),
-      tag: 'onboarding',
       permanent: true,
     );
 
-    // ============ CORE REPOSITORIES (Added in v4.0 for Dashboard support) ============
-    
     Get.put<HydrationRepository>(
-      HydrationRepositoryImpl(userId: 'current-user-id'),
-      tag: 'hydration',
+      HydrationRepositoryImpl(),
       permanent: true,
     );
 
     Get.put<DailyLogRepository>(
       DailyLogRepositoryImpl(
-        userId: 'current-user-id',
-        hydrationRepository: Get.find<HydrationRepository>(tag: 'hydration'),
+        hydrationRepository: Get.find<HydrationRepository>(),
       ),
-      tag: 'daily_log',
+      permanent: true,
+    );
+
+    // Authentication (permanent global)
+    Get.put<AuthController>(
+      AuthController(),
       permanent: true,
     );
 
@@ -136,7 +132,7 @@ class OnboardingBinding extends Bindings {
     } catch (_) {
       Get.put<OnboardingController>(
         OnboardingController(
-          Get.find<OnboardingRepository>(tag: 'onboarding'),
+          Get.find<OnboardingRepository>(),
         ),
         tag: 'onboarding',
         permanent: true,
@@ -156,8 +152,8 @@ class DashboardBinding extends Bindings {
 
     Get.lazyPut<DashboardController>(
           () => DashboardController(
-            Get.find<DailyLogRepository>(tag: 'daily_log'),
-            Get.find<OnboardingRepository>(tag: 'onboarding'),
+            Get.find<DailyLogRepository>(),
+            Get.find<OnboardingRepository>(),
           ),
       tag: 'dashboard',
     );
@@ -175,8 +171,8 @@ class NutritionBinding extends Bindings {
 
     Get.lazyPut<NutritionRepository>(
           () => SyncNutritionRepository(
-            userId: 'current-user-id',
-            localRepository: NutritionRepositoryImpl(userId: 'current-user-id'),
+            userId: Get.find<AuthController>().userId.value,
+            localRepository: NutritionRepositoryImpl(),
           ),
       tag: 'nutrition',
     );
@@ -184,6 +180,7 @@ class NutritionBinding extends Bindings {
     Get.lazyPut<NutritionController>(
           () => NutritionController(
         Get.find<NutritionRepository>(tag: 'nutrition'),
+        Get.find<DailyLogRepository>(),
       ),
       tag: 'nutrition',
     );
@@ -201,8 +198,8 @@ class TrainingBinding extends Bindings {
 
     Get.lazyPut<TrainingRepository>(
           () => SyncTrainingRepository(
-            userId: 'current-user-id',
-            localRepository: TrainingRepositoryImpl(userId: 'current-user-id'),
+            userId: Get.find<AuthController>().userId.value,
+            localRepository: TrainingRepositoryImpl(),
           ),
       tag: 'training',
     );
@@ -210,6 +207,7 @@ class TrainingBinding extends Bindings {
     Get.lazyPut<TrainingController>(
           () => TrainingController(
         Get.find<TrainingRepository>(tag: 'training'),
+        Get.find<DailyLogRepository>(),
       ),
       tag: 'training',
     );
@@ -227,15 +225,16 @@ class HydrationBinding extends Bindings {
 
     Get.lazyPut<HydrationRepository>(
           () => SyncHydrationRepository(
-            userId: 'current-user-id',
-            localRepository: HydrationRepositoryImpl(userId: 'current-user-id'),
+            userId: Get.find<AuthController>().userId.value,
+            localRepository: HydrationRepositoryImpl(),
           ),
       tag: 'hydration',
     );
 
     Get.lazyPut<HydrationController>(
           () => HydrationController(
-        Get.find<HydrationRepository>(tag: 'hydration'),
+        Get.find<HydrationRepository>(),
+        Get.find<DailyLogRepository>(),
       ),
       tag: 'hydration',
     );
@@ -253,8 +252,8 @@ class BmiBinding extends Bindings {
 
     Get.lazyPut<BmiRepository>(
           () => SyncBmiRepository(
-            userId: 'current-user-id',
-            localRepository: BmiRepositoryImpl(userId: 'current-user-id'),
+            userId: Get.find<AuthController>().userId.value,
+            localRepository: BmiRepositoryImpl(),
           ),
       tag: 'bmi',
     );
@@ -279,15 +278,14 @@ class DailyLogBinding extends Bindings {
 
     Get.lazyPut<DailyLogRepository>(
           () => DailyLogRepositoryImpl(
-            userId: 'current-user-id',
-            hydrationRepository: Get.find<HydrationRepository>(tag: 'hydration'),
+            hydrationRepository: Get.find<HydrationRepository>(),
           ),
       tag: 'daily_log',
     );
 
     Get.lazyPut<DailyLogController>(
           () => DailyLogController(
-        Get.find<DailyLogRepository>(tag: 'daily_log'),
+        Get.find<DailyLogRepository>(),
       ),
       tag: 'daily_log',
     );

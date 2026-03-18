@@ -4,6 +4,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
 import 'package:hive/hive.dart';
 import 'package:active_tracker/config/constants.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 /// Manages user authentication and session state
 class AuthController extends GetxController {
@@ -15,6 +18,7 @@ class AuthController extends GetxController {
   final isLoading = false.obs;
   final errorMessage = ''.obs;
   final successMessage = ''.obs;
+  final profileImageUrl = Rx<String?>(null);
 
   // ============ GOOGLE SIGN IN CONFIG ============
   late final GoogleSignIn _googleSignIn;
@@ -49,12 +53,21 @@ class AuthController extends GetxController {
         userId.value = user.uid;
         userEmail.value = user.email ?? '';
         userName.value = user.displayName ?? '';
+        
+        // Load profile image from Hive
+        final onboardingRepo = Get.find<OnboardingRepository>();
+        final profile = onboardingRepo.getUserProfileSync();
+        if (profile != null) {
+          profileImageUrl.value = profile.imageUrl;
+        }
+        
         print('✅ User is logged in: ${user.email}');
       } else {
         isLoggedIn.value = false;
         userId.value = '';
         userEmail.value = '';
         userName.value = '';
+        profileImageUrl.value = null;
         print('ℹ️ No user logged in');
       }
 
@@ -116,6 +129,7 @@ class AuthController extends GetxController {
     }
   }
 
+  /*
   /// Send OTP to Phone (Firebase)
   Future<void> sendPhoneOTP(String phoneNumber) async {
     try {
@@ -150,7 +164,9 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
+  */
 
+  /*
   /// Send OTP to Email (Firebase Login Link - alternative for Email OTP)
   /// Note: Firebase doesn't have a direct "6 digit code" for email like phone,
   /// but we can simulate it or use Email Link. For v4.0 SRS, we'll implement 
@@ -187,7 +203,9 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
+  */
 
+  /*
   /// Verify OTP Code
   Future<void> verifyOTP(String verificationId, String smsCode) async {
     try {
@@ -205,7 +223,7 @@ class AuthController extends GetxController {
       if (user != null) {
         isLoggedIn.value = true;
         userId.value = user.uid;
-        phoneNumber.value = user.phoneNumber ?? '';
+        // phoneNumber.value = user.phoneNumber ?? ''; // Removed as phoneNumber observable is removed
         print('✅ User logged in with OTP: ${user.phoneNumber}');
         
         await _handlePostLoginNavigation(user.uid);
@@ -215,6 +233,81 @@ class AuthController extends GetxController {
       print('❌ OTP verification failed: ${e.code}');
     } catch (e) {
       errorMessage.value = 'An unexpected error occurred: $e';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+  */
+
+  /// Pick and upload profile image
+  Future<void> pickAndUploadProfileImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+
+      if (image == null) return;
+
+      isLoading.value = true;
+      errorMessage.value = '';
+
+      final File file = File(image.path);
+      final String uid = userId.value;
+      
+      if (uid.isEmpty) throw Exception('User not logged in');
+
+      print('🔄 Starting image upload for user: $uid');
+
+      // 1. Upload to Firebase Storage
+      final storageRef = FirebaseStorage.instance.ref().child('profiles/$uid/photo.jpg');
+      final uploadTask = storageRef.putFile(file);
+      
+      // Monitor progress (optional but good for debugging)
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        print('📈 Upload progress: ${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%');
+      }, onError: (e) {
+        print('❌ Upload task error: $e');
+      });
+
+      // Wait for upload to complete
+      await uploadTask;
+      print('✅ Upload task completed');
+      
+      // 2. Get Download URL with Retry mechanism
+      String? downloadUrl;
+      int retries = 0;
+      const int maxRetries = 3;
+
+      while (retries < maxRetries) {
+        try {
+          downloadUrl = await storageRef.getDownloadURL();
+          break; // Success
+        } catch (e) {
+          retries++;
+          print('⚠️ Error getting download URL (attempt $retries/$maxRetries): $e');
+          if (retries >= maxRetries) rethrow;
+          await Future.delayed(Duration(seconds: retries * 1)); // Exponential-ish backoff
+        }
+      }
+
+      if (downloadUrl == null) throw Exception('Failed to retrieve download URL');
+
+      // 3. Update Local and Cloud Profile via Repository
+      final onboardingRepo = Get.find<OnboardingRepository>();
+      await onboardingRepo.updateUserProfileImage(downloadUrl);
+      
+      // 4. Update state
+      profileImageUrl.value = downloadUrl;
+      successMessage.value = 'Profile picture updated successfully!';
+      
+      print('✅ Profile image uploaded and updated: $downloadUrl');
+    } catch (e) {
+      errorMessage.value = 'Failed to upload image: $e';
+      print('❌ Image upload error: $e');
     } finally {
       isLoading.value = false;
     }
@@ -240,7 +333,7 @@ class AuthController extends GetxController {
       userEmail.value = '';
 
       try {
-        final onboardingRepo = Get.find<OnboardingRepository>(tag: 'onboarding');
+        final onboardingRepo = Get.find<OnboardingRepository>();
         await onboardingRepo.clearUserProfile();
       } catch (e) {
         print('⚠️ Error clearing profile on logout: $e');
@@ -413,7 +506,7 @@ class AuthController extends GetxController {
       }
 
       // Check if onboarding is complete local first
-      final onboardingRepo = Get.find<OnboardingRepository>(tag: 'onboarding');
+      final onboardingRepo = Get.find<OnboardingRepository>();
       bool isComplete = await onboardingRepo.isOnboardingComplete();
       
       if (!isComplete) {

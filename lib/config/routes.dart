@@ -22,7 +22,6 @@ import 'package:active_tracker/presentation/pages/body_metrics_screen.dart';
 import 'package:active_tracker/presentation/pages/devices_screen.dart';
 import 'package:active_tracker/presentation/pages/ai_coach_screen.dart';
 import 'package:active_tracker/presentation/pages/pricing_screen.dart';
-import 'package:active_tracker/presentation/screens/auth/otp_screen.dart';
 import 'package:get/get.dart';
 import 'package:active_tracker/presentation/bindings/app_binding.dart';
 import 'constants.dart';
@@ -147,12 +146,6 @@ final List<GetPage<dynamic>> appPages = [
     transition: Transition.rightToLeft,
   ),
 
-  GetPage(
-    name: AppConstants.routeOtp,
-    page: () => const OtpScreen(),
-    binding: AuthBinding(),
-    transition: Transition.fadeIn,
-  ),
 
   GetPage(
     name: AppConstants.routeAnalytics,

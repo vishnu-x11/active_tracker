@@ -1,19 +1,21 @@
-
 import 'package:active_tracker/utils/date_utils.dart';
 import 'package:flutter/material.dart' hide DateUtils;
 
 class DateNavigator extends StatelessWidget {
-  const DateNavigator({super.key,
-    required this.selectedDate,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onToday,
-  });
-
   final DateTime selectedDate;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onToday;
+  final VoidCallback? onDateTap;
+
+  const DateNavigator({
+    super.key,
+    required this.selectedDate,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onToday,
+    this.onDateTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,20 +37,21 @@ class DateNavigator extends StatelessWidget {
 
           // Date display with today button
           GestureDetector(
-            onTap: isToday ? null : onToday,
+            onTap: onDateTap ?? (isToday ? null : onToday),
             child: Column(
               children: [
                 Text(
                   formattedDate,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (!isToday)
-                  Text(
-                    'Tap for today',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                Text(
+                  onDateTap != null ? 'Tap for calendar' : (isToday ? '' : 'Tap for today'),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ],
             ),
           ),

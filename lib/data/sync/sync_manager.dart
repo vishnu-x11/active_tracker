@@ -90,6 +90,9 @@ class SyncManager {
       _state = SyncState.syncing;
       print('🔄 Starting sync for user: $userId');
 
+      // Repair any stale operations before processing
+      await _queueManager.repairOperations(userId);
+
       await processOfflineQueue(userId);
 
       _lastSyncTime = DateTime.now();

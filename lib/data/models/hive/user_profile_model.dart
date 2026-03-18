@@ -51,6 +51,9 @@ class UserProfileModel extends HiveObject {
   @HiveField(14)
   final double burnedCalorieGoal;
 
+  @HiveField(15)
+  final String? imageUrl;
+
   UserProfileModel({
     required this.userId,
     required this.name,
@@ -67,6 +70,7 @@ class UserProfileModel extends HiveObject {
     required this.createdAt,
     required this.updatedAt,
     this.burnedCalorieGoal = 500.0,
+    this.imageUrl,
   });
 
   /// Create a copy of this model with updated fields
@@ -84,6 +88,7 @@ class UserProfileModel extends HiveObject {
     double? carbsGoal,
     int? waterGoalMl,
     double? burnedCalorieGoal,
+    String? imageUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -101,6 +106,7 @@ class UserProfileModel extends HiveObject {
       carbsGoal: carbsGoal ?? this.carbsGoal,
       waterGoalMl: waterGoalMl ?? this.waterGoalMl,
       burnedCalorieGoal: burnedCalorieGoal ?? this.burnedCalorieGoal,
+      imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -122,6 +128,7 @@ class UserProfileModel extends HiveObject {
       'carbsGoal': carbsGoal,
       'waterGoalMl': waterGoalMl,
       'burnedCalorieGoal': burnedCalorieGoal,
+      'imageUrl': imageUrl,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -143,6 +150,7 @@ class UserProfileModel extends HiveObject {
       carbsGoal: (map['carbsGoal'] as num).toDouble(),
       waterGoalMl: map['waterGoalMl'] as int,
       burnedCalorieGoal: (map['burnedCalorieGoal'] as num?)?.toDouble() ?? 500.0,
+      imageUrl: map['imageUrl'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
     );

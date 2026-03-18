@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
 import 'package:active_tracker/data/models/sqlite/food_item.dart';
@@ -8,9 +10,9 @@ import 'package:active_tracker/domain/repositories/repositories.dart';
 /// Implementation of NutritionRepository
 /// Manages food logs and nutrition tracking using SQLite
 class NutritionRepositoryImpl implements NutritionRepository {
-  final String userId;
+  String get _userId => Get.find<AuthController>().userId.value;
 
-  NutritionRepositoryImpl({required this.userId});
+  NutritionRepositoryImpl();
 
   /// Get database instance
   Database get _db => SqliteManager.getInstance();
@@ -18,8 +20,8 @@ class NutritionRepositoryImpl implements NutritionRepository {
   @override
   Future<void> addFoodLog(FoodLog foodLog) async {
     try {
-      // Add userId if not set
-      final log = foodLog.copyWith(userId: userId);
+      // Add _userId if not set
+      final log = foodLog.copyWith(userId: _userId);
 
       final id = await _db.insert(
         'food_logs',
@@ -29,7 +31,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'create',
         tableName: 'food_logs',
         entityId: id.toString(),
@@ -49,7 +51,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
       final result = await _db.query(
         'food_logs',
         where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
+        whereArgs: [_userId, dateKey],
         orderBy: 'timestamp DESC',
       );
 
@@ -65,7 +67,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
     try {
       final result = await _db.rawQuery(
         'SELECT COALESCE(SUM(calories), 0) as total FROM food_logs WHERE userId = ? AND dateKey = ?',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       return (result.first['total'] as num).toDouble();
@@ -85,7 +87,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
           COALESCE(SUM(carbs), 0) as carbs
         FROM food_logs 
         WHERE userId = ? AND dateKey = ?''',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       if (result.isEmpty) {
@@ -106,17 +108,17 @@ class NutritionRepositoryImpl implements NutritionRepository {
   @override
   Future<void> updateFoodLog(FoodLog foodLog) async {
     try {
-      final log = foodLog.copyWith(userId: userId);
+      final log = foodLog.copyWith(userId: _userId);
       await _db.update(
         'food_logs',
         log.toMap(),
         where: 'id = ? AND userId = ?',
-        whereArgs: [foodLog.id, userId],
+        whereArgs: [foodLog.id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'update',
         tableName: 'food_logs',
         entityId: foodLog.id.toString(),
@@ -136,12 +138,12 @@ class NutritionRepositoryImpl implements NutritionRepository {
       await _db.delete(
         'food_logs',
         where: 'id = ? AND userId = ?',
-        whereArgs: [id, userId],
+        whereArgs: [id, _userId],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'delete',
         tableName: 'food_logs',
         entityId: id.toString(),
@@ -164,7 +166,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
       final result = await _db.query(
         'food_logs',
         where: 'userId = ? AND dateKey BETWEEN ? AND ?',
-        whereArgs: [userId, startDate, endDate],
+        whereArgs: [_userId, startDate, endDate],
         orderBy: 'dateKey DESC, timestamp DESC',
       );
 
@@ -186,7 +188,7 @@ class NutritionRepositoryImpl implements NutritionRepository {
         FROM food_logs 
         WHERE userId = ? AND dateKey BETWEEN ? AND ?
         GROUP BY dateKey''',
-        [userId, startDate, endDate],
+        [_userId, startDate, endDate],
       );
 
       final summary = <String, double>{};

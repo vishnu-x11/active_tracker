@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
 
@@ -191,6 +192,56 @@ class OfflineQueueManager {
     } catch (e) {
       print('❌ Error incrementing retry count: $e');
       rethrow;
+    }
+  }
+
+  /// Repair operations with wrong user ID
+  Future<void> repairOperations(String correctUserId) async {
+    try {
+      final operations = await getPendingOperations();
+      int repairedCount = 0;
+
+      for (var op in operations) {
+        bool needsUpdate = false;
+        String updatedUserId = op.userId;
+        String updatedData = op.data;
+
+        // Check if userId is placeholder or empty
+        if (op.userId == 'current-user-id' || op.userId.isEmpty) {
+          updatedUserId = correctUserId;
+          needsUpdate = true;
+        }
+
+        // Check JSON data for placeholder
+        if (op.data.contains('current-user-id')) {
+          try {
+            final Map<String, dynamic> dataMap = jsonDecode(op.data);
+            if (dataMap['userId'] == 'current-user-id') {
+              dataMap['userId'] = correctUserId;
+              updatedData = jsonEncode(dataMap);
+              needsUpdate = true;
+            }
+          } catch (e) {
+            print('⚠️ Failed to parse data for repair: $e');
+          }
+        }
+
+        if (needsUpdate) {
+          await _db.update(
+            _tableName,
+            {'userId': updatedUserId, 'data': updatedData},
+            where: 'id = ?',
+            whereArgs: [op.id],
+          );
+          repairedCount++;
+        }
+      }
+
+      if (repairedCount > 0) {
+        print('🔧 Repaired $repairedCount operations in sync queue');
+      }
+    } catch (e) {
+      print('❌ Error repairing operations: $e');
     }
   }
 

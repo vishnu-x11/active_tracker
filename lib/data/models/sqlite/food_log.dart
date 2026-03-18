@@ -11,6 +11,7 @@ class FoodLog {
   final double carbs;
   final double quantity;
   final String? unit; // g, ml, piece, serving, etc.
+  final String mealType; // Breakfast, Lunch, Dinner, Snack
   final int timestamp; // Unix timestamp
   final int createdAt; // Unix timestamp
   final int updatedAt; // Unix timestamp
@@ -26,6 +27,7 @@ class FoodLog {
     required this.carbs,
     required this.quantity,
     this.unit,
+    this.mealType = 'Breakfast',
     required this.timestamp,
     required this.createdAt,
     required this.updatedAt,
@@ -44,6 +46,7 @@ class FoodLog {
       'carbs': carbs,
       'quantity': quantity,
       'unit': unit,
+      'mealType': mealType,
       'timestamp': timestamp,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
@@ -63,6 +66,7 @@ class FoodLog {
       carbs: (map['carbs'] as num).toDouble(),
       quantity: (map['quantity'] as num).toDouble(),
       unit: map['unit'] as String?,
+      mealType: map['mealType'] as String? ?? 'Breakfast',
       timestamp: map['timestamp'] as int,
       createdAt: map['createdAt'] as int,
       updatedAt: map['updatedAt'] as int,
@@ -81,6 +85,7 @@ class FoodLog {
     double? carbs,
     double? quantity,
     String? unit,
+    String? mealType,
     int? timestamp,
     int? createdAt,
     int? updatedAt,
@@ -96,6 +101,7 @@ class FoodLog {
       carbs: carbs ?? this.carbs,
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
+      mealType: mealType ?? this.mealType,
       timestamp: timestamp ?? this.timestamp,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

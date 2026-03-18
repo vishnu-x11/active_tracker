@@ -12,6 +12,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  google_fonts: ^6.2.1
+
   # ============ STATE MANAGEMENT & ROUTING ============
   get: ^4.6.5
 
@@ -36,9 +38,13 @@ dependencies:
   table_calendar: ^3.0.9
   share_plus: ^7.2.1
   path_provider: ^2.1.1
+  flutter_otp_text_field: ^1.1.1
   fl_chart: ^0.68.0
   pdf: ^3.10.0
-  flutter_otp_text_field: ^1.1.1
+  firebase_storage: ^12.1.0
+  image_picker: ^1.0.4
+  shimmer: ^3.0.0
+  easy_date_timeline: ^1.1.2
 
   # ============ UTILITIES & PLATFORM ============
   connectivity_plus: ^5.0.0

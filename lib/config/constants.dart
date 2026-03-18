@@ -94,7 +94,6 @@ class AppConstants {
   static const String routeNotes = '/notes';
   static const String routeCalendar = '/calendar';
   static const String routeSettings = '/settings';
-  static const String routeOtp = '/otp';
   static const String routeAnalytics = '/analytics';
   static const String routeWorkoutPrograms = '/workout-programs';
   static const String routeMealPlanning = '/meal-planning';

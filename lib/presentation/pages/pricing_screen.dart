@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/premium/premium_controller.dart';
-import '../../config/theme.dart';
-import '../../config/constants.dart';
+import '../../utils/app_colors.dart';
+import '../widgets/common/container_widget.dart';
+import '../widgets/common/text_widget.dart';
+import '../widgets/common/button_widget.dart';
 
 class PricingScreen extends GetView<PremiumController> {
   const PricingScreen({Key? key}) : super(key: key);
@@ -12,27 +14,30 @@ class PricingScreen extends GetView<PremiumController> {
     return Scaffold(
       appBar: AppBar(title: const Text('Go Premium')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppPadding.lg),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.star, size: 80, color: AppTheme.warning),
+            const Icon(Icons.star_rounded, size: 80, color: AppColors.primary),
             const SizedBox(height: 24),
-            const Text(
+            const TextWidget(
               'Unlock Active Health PRO',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.white),
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              textAlign: TextAlign.center,
+              color: AppColors.textPrimary,
             ),
             const SizedBox(height: 12),
-            const Text(
+            const TextWidget(
               'Get access to AI coaching, advanced analytics, custom meal plans, and more.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 48),
             _buildFeatureRow(Icons.psychology, 'AI Health Coaching'),
             _buildFeatureRow(Icons.analytics, 'Advanced Performance Insights'),
             _buildFeatureRow(Icons.flatware, 'Smart Meal Planning'),
             _buildFeatureRow(Icons.watch, 'Premium Device Integration'),
-            const SizedBox(height: 40),
+            const SizedBox(height: 48),
             _buildPricingCard(
               'PRO MONTHLY',
               '\$9.99/mo',
@@ -46,22 +51,17 @@ class PricingScreen extends GetView<PremiumController> {
               'Best value. Save 33%.',
               true,
             ),
-            const SizedBox(height: 40),
-            Obx(() => SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: controller.isLoading.value 
-                  ? null 
-                  : () => controller.upgradeToPremium(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-                ),
-                child: controller.isLoading.value
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('UPGRADE NOW', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
+            const SizedBox(height: 48),
+            Obx(() => ButtonWidget(
+              onPressed: controller.isLoading.value ? () {} : () => controller.upgradeToPremium(),
+              buttonColor: AppColors.primary,
+              textWidget: controller.isLoading.value
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                    )
+                  : const TextWidget('UPGRADE NOW', color: AppColors.white, fontWeight: FontWeight.w700),
             )),
           ],
         ),
@@ -71,39 +71,49 @@ class PricingScreen extends GetView<PremiumController> {
 
   Widget _buildFeatureRow(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.primary, size: 20),
+          Icon(icon, color: AppColors.primary, size: 22),
           const SizedBox(width: 16),
-          Text(text, style: const TextStyle(color: AppTheme.white)),
+          TextWidget(text, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
         ],
       ),
     );
   }
 
   Widget _buildPricingCard(String title, String price, String desc, bool isBestValue) {
-    return Container(
-      padding: const EdgeInsets.all(AppPadding.md),
-      decoration: BoxDecoration(
-        color: AppTheme.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: isBestValue ? AppTheme.primary : Colors.white10),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.white)),
-                Text(desc, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-              ],
+    return ContainerWidget(
+      backgroundColor: isBestValue ? AppColors.white : AppColors.background,
+      borderColor: isBestValue ? AppColors.primary : const Color(0xFFEEEEEE),
+      borderWidth: isBestValue ? 2 : 1,
+      borderRadius: 16,
+      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.zero,
+      boxShadow: isBestValue ? [
+        BoxShadow(
+          color: AppColors.primary.withOpacity(0.1),
+          blurRadius: 20,
+          offset: const Offset(0, 10),
+        )
+      ] : null,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextWidget(title, fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.textPrimary),
+                  const SizedBox(height: 4),
+                  TextWidget(desc, fontSize: 13, color: AppColors.textSecondary),
+                ],
+              ),
             ),
-          ),
-          Text(price, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primary)),
-        ],
-      ),
+            TextWidget(price, fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.primary),
+          ],
+        ),
+      ],
     );
   }
 }

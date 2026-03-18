@@ -11,7 +11,6 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
-    final phoneController = TextEditingController();
 
     return GetBuilder<AuthController>(
       builder: (controller) {
@@ -70,88 +69,42 @@ class LoginScreen extends StatelessWidget {
                     
                     const SizedBox(height: 50),
 
-                    // Choice of Login Type (Password or OTP)
-                    DefaultTabController(
-                      length: 2,
-                      child: Column(
-                        children: [
-                          TabBar(
-                            tabs: const [
-                              Tab(text: 'Password'),
-                              Tab(text: 'OTP'),
-                            ],
-                            labelColor: AppTheme.primary,
-                            unselectedLabelColor: AppTheme.white.withOpacity(0.5),
-                            indicatorColor: AppTheme.primary,
-                            dividerColor: Colors.transparent,
+                    // Password Login Fields
+                    Column(
+                      children: [
+                        TextField(
+                          controller: emailController,
+                          style: const TextStyle(color: AppTheme.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email_outlined),
                           ),
-                          const SizedBox(height: AppPadding.lg),
-                          SizedBox(
-                            height: 250,
-                            child: TabBarView(
-                              children: [
-                                // PASSWORD LOGIN
-                                Column(
-                                  children: [
-                                    TextField(
-                                      controller: emailController,
-                                      style: const TextStyle(color: AppTheme.white),
-                                      decoration: const InputDecoration(
-                                        labelText: 'Email',
-                                        prefixIcon: Icon(Icons.email_outlined),
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppPadding.md),
-                                    TextField(
-                                      controller: passwordController,
-                                      obscureText: true,
-                                      style: const TextStyle(color: AppTheme.white),
-                                      decoration: const InputDecoration(
-                                        labelText: 'Password',
-                                        prefixIcon: Icon(Icons.lock_outlined),
-                                      ),
-                                    ),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton(
-                                        onPressed: () {
-                                          if (emailController.text.trim().isNotEmpty) {
-                                            controller.resetPassword(emailController.text.trim());
-                                          }
-                                        },
-                                        child: const Text('Forgot Password?'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                
-                                // OTP LOGIN
-                                Column(
-                                  children: [
-                                    TextField(
-                                      controller: phoneController,
-                                      keyboardType: TextInputType.phone,
-                                      style: const TextStyle(color: AppTheme.white),
-                                      decoration: const InputDecoration(
-                                        labelText: 'Phone Number',
-                                        hintText: '+1234567890',
-                                        prefixIcon: Icon(Icons.phone_outlined),
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppPadding.lg),
-                                    const Text(
-                                      'We will send a 6-digit verification code to your phone number.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.white70, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: AppPadding.md),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          style: const TextStyle(color: AppTheme.white),
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outlined),
                           ),
-                        ],
-                      ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              if (emailController.text.trim().isNotEmpty) {
+                                controller.resetPassword(emailController.text.trim());
+                              }
+                            },
+                            child: const Text('Forgot Password?'),
+                          ),
+                        ),
+                      ],
                     ),
+                    
+                    const SizedBox(height: AppPadding.lg),
 
                     // Actions
                     Obx(() => controller.errorMessage.isNotEmpty
@@ -169,15 +122,10 @@ class LoginScreen extends StatelessWidget {
                           onPressed: controller.isLoading.value
                               ? null
                               : () {
-                                  // Simplified logic: if phone is filled, assume OTP
-                                  if (phoneController.text.trim().isNotEmpty) {
-                                    controller.sendPhoneOTP(phoneController.text.trim());
-                                  } else {
-                                    controller.login(
-                                      email: emailController.text.trim(),
-                                      password: passwordController.text,
-                                    );
-                                  }
+                                  controller.login(
+                                    email: emailController.text.trim(),
+                                    password: passwordController.text,
+                                  );
                                 },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),

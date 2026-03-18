@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 
 class GoalCard extends StatelessWidget {
   const GoalCard({super.key,
@@ -9,6 +10,7 @@ class GoalCard extends StatelessWidget {
     this.goal = 100,
     this.progress = 0.5,
     this.isMet = false,
+    this.isLoading = false,
   });
 
   final IconData icon;
@@ -18,9 +20,20 @@ class GoalCard extends StatelessWidget {
   final double goal;
   final double progress;
   final bool isMet;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Shimmer.fromColors(
+        baseColor: Colors.grey[800]!,
+        highlightColor: Colors.grey[700]!,
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(height: 140, width: double.infinity),
+        ),
+      );
+    }
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(

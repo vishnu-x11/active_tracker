@@ -24,7 +24,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -49,6 +49,7 @@ class DatabaseHelper {
         carbs REAL NOT NULL,
         quantity REAL NOT NULL,
         unit TEXT,
+        mealType TEXT NOT NULL DEFAULT 'Breakfast',
         timestamp INTEGER NOT NULL,
         createdAt INTEGER NOT NULL,
         updatedAt INTEGER NOT NULL,
@@ -641,6 +642,14 @@ class DatabaseHelper {
       ''');
 
       print('✅ Database upgraded to version 8: v4.0 tables added');
+    }
+
+    if (oldVersion < 9) {
+      final tables = await db.rawQuery("PRAGMA table_info(food_logs)");
+      if (!tables.any((column) => column['name'] == 'mealType')) {
+        await db.execute("ALTER TABLE food_logs ADD COLUMN mealType TEXT NOT NULL DEFAULT 'Breakfast'");
+        print('✅ Database upgraded to version 9: mealType column added to food_logs');
+      }
     }
   }
 }

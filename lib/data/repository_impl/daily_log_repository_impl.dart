@@ -1,19 +1,22 @@
+import 'package:get/get.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:active_tracker/data/models/sqlite/daily_log_summary.dart';
 import 'package:active_tracker/data/local/sqlite_manager.dart';
 import 'package:active_tracker/data/sync/sync_manager.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
-import 'package:active_tracker/utils/date_utils.dart';
 import 'package:active_tracker/data/local/hive_manager.dart';
+import 'package:active_tracker/utils/health_utils.dart';
+import 'package:active_tracker/data/models/sqlite/exercise.dart';
+import 'package:active_tracker/data/models/hive/user_profile_model.dart';
 
 /// Implementation of DailyLogRepository
 /// Manages daily log summaries and aggregated data
 class DailyLogRepositoryImpl implements DailyLogRepository {
-  final String userId;
+  String get _userId => Get.find<AuthController>().userId.value;
   final HydrationRepository _hydrationRepository;
 
   DailyLogRepositoryImpl({
-    required this.userId,
     required HydrationRepository hydrationRepository,
   }) : _hydrationRepository = hydrationRepository;
 
@@ -26,7 +29,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       final result = await _db.query(
         'daily_log_summary',
         where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
+        whereArgs: [_userId, dateKey],
         limit: 1,
       );
 
@@ -42,7 +45,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
   @override
   Future<void> updateDailyLogSummary(DailyLogSummary dailySummary) async {
     try {
-      final summary = dailySummary.copyWith(userId: userId);
+      final summary = dailySummary.copyWith(userId: _userId);
 
       await _db.insert(
         'daily_log_summary',
@@ -52,7 +55,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'update',
         tableName: 'daily_log_summary',
         entityId: summary.dateKey,
@@ -75,7 +78,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       final result = await _db.query(
         'daily_log_summary',
         where: 'userId = ? AND dateKey BETWEEN ? AND ?',
-        whereArgs: [userId, startDate, endDate],
+        whereArgs: [_userId, startDate, endDate],
         orderBy: 'dateKey DESC',
       );
 
@@ -98,7 +101,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
           COALESCE(SUM(carbs), 0) as carbs
         FROM food_logs 
         WHERE userId = ? AND dateKey = ?''',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
       final calories = (foodResult.first['calories'] as num).toDouble();
@@ -106,14 +109,38 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       final fat = (foodResult.first['fat'] as num).toDouble();
       final carbs = (foodResult.first['carbs'] as num).toDouble();
 
-      // Get workout duration and calories burned
+      // Get workout duration and calories burned from logs
       final workoutResult = await _db.rawQuery(
         'SELECT COALESCE(SUM(duration), 0) as totalDuration, COALESCE(SUM(caloriesBurned), 0) as totalBurned FROM workout_logs WHERE userId = ? AND dateKey = ?',
-        [userId, dateKey],
+        [_userId, dateKey],
       );
 
-      final workoutMinutes = (workoutResult.first['totalDuration'] as int);
-      final caloriesBurned = (workoutResult.first['totalBurned'] as num).toDouble();
+      final workoutMinutesFromLogs = (workoutResult.first['totalDuration'] as int);
+      final caloriesBurnedFromLogs = (workoutResult.first['totalBurned'] as num).toDouble();
+
+      // Get all exercises to estimate their duration and calories
+      final exerciseRows = await _db.query(
+        'exercises',
+        where: 'userId = ? AND dateKey = ?',
+        whereArgs: [_userId, dateKey],
+      );
+      final exerciseList = exerciseRows.map((map) => Exercise.fromMap(map)).toList();
+
+      // Fetch user weight from profile (Hive)
+      final profileBox = HiveManager.getUserBox();
+      final UserProfileModel? profile = profileBox.get('userProfile');
+      final userWeight = profile?.weight ?? 70.0;
+
+      int exerciseMinutes = 0;
+      double exerciseCalories = 0.0;
+
+      for (var ex in exerciseList) {
+        exerciseMinutes += HealthUtils.estimateExerciseDuration(ex);
+        exerciseCalories += HealthUtils.estimateExerciseCalories(ex, userWeightKg: userWeight);
+      }
+
+      final workoutMinutes = workoutMinutesFromLogs + exerciseMinutes;
+      final caloriesBurned = caloriesBurnedFromLogs + exerciseCalories;
 
       // Get water intake from actual Hydration storage (Hive)
       final totalWater = await _hydrationRepository.getTotalWaterForDate(dateKey);
@@ -121,12 +148,12 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       // Get exercise counts
       final pushupResult = await _db.rawQuery(
         'SELECT COALESCE(SUM(reps * sets), 0) as total FROM exercises WHERE userId = ? AND dateKey = ? AND exerciseType = ?',
-        [userId, dateKey, 'pushup'],
+        [_userId, dateKey, 'pushup'],
       );
 
       final pullupResult = await _db.rawQuery(
         'SELECT COALESCE(SUM(reps * sets), 0) as total FROM exercises WHERE userId = ? AND dateKey = ? AND exerciseType = ?',
-        [userId, dateKey, 'pullup'],
+        [_userId, dateKey, 'pullup'],
       );
 
       final pushups = (pushupResult.first['total'] as int);
@@ -135,7 +162,7 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       // Create summary
       final now = DateTime.now().millisecondsSinceEpoch;
       final summary = DailyLogSummary(
-        userId: userId,
+        userId: _userId,
         dateKey: dateKey,
         totalCalories: calories,
         totalProtein: protein,
@@ -342,12 +369,12 @@ class DailyLogRepositoryImpl implements DailyLogRepository {
       await _db.delete(
         'daily_log_summary',
         where: 'userId = ? AND dateKey = ?',
-        whereArgs: [userId, dateKey],
+        whereArgs: [_userId, dateKey],
       );
 
       // Queue for sync
       await SyncManager().queueOperation(
-        userId: userId,
+        userId: _userId,
         operationType: 'delete',
         tableName: 'daily_log_summary',
         entityId: dateKey,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:active_tracker/data/models/sqlite/food_log.dart';
 import 'package:active_tracker/data/models/sqlite/workout_log.dart';
 import 'package:active_tracker/data/models/sqlite/exercise.dart';
@@ -75,6 +76,9 @@ class FirebaseSync {
   /// Push food log to Firebase
   Future<String> pushFoodLog(FoodLog foodLog) async {
     try {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      print('🔍 Syncing FoodLog: payload userId=${foodLog.userId}, auth.uid=$currentUid');
+
       final docRef = await _firestore.collection('foodLogs').add({
         ...foodLog.toMap(),
         'userId': foodLog.userId,
@@ -210,6 +214,9 @@ class FirebaseSync {
   /// Push exercise to Firebase
   Future<String> pushExercise(Exercise exercise) async {
     try {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      print('🔍 Syncing Exercise: payload userId=${exercise.userId}, auth.uid=$currentUid');
+
       final docRef = await _firestore.collection('exercises').add({
         ...exercise.toMap(),
         'userId': exercise.userId,
@@ -250,6 +257,9 @@ class FirebaseSync {
   /// Push daily log summary to Firebase
   Future<String> pushDailyLogSummary(DailyLogSummary summary) async {
     try {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      print('🔍 Syncing DailyLogSummary: payload userId=${summary.userId}, auth.uid=$currentUid');
+
       final docRef = await _firestore.collection('dailyLogSummaries').add({
         ...summary.toMap(),
         'userId': summary.userId,

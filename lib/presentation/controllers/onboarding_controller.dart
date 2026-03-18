@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:active_tracker/domain/repositories/repositories.dart';
+import 'package:active_tracker/presentation/controllers/auth_controller.dart';
 
 /// Manages user onboarding flow and profile setup
 class OnboardingController extends GetxController {
@@ -99,7 +100,7 @@ class OnboardingController extends GetxController {
       errorMessage.value = '';
 
       await _repository.saveUserProfile(
-        userId: 'current-user-id',
+        userId: Get.find<AuthController>().userId.value,
         name: userName.value,
         age: userAge.value,
         weight: userWeight.value,

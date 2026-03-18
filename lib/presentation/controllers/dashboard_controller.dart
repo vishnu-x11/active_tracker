@@ -34,6 +34,14 @@ class DashboardController extends GetxController {
   final waterProgress = 0.0.obs;
   final workoutProgress = 0.0.obs;
   final caloriesBurnedProgress = 0.0.obs;
+  
+  // Detailed macro breakdown
+  final todayCarbs = 0.0.obs;
+  final todayFat = 0.0.obs;
+  final carbsGoal = 250.0.obs;
+  final fatGoal = 65.0.obs;
+
+  final streakCount = 0.obs;
 
   // ============ CONSTRUCTOR ============
   DashboardController(this._dailyLogRepository, this._onboardingRepository);
@@ -102,15 +110,16 @@ class DashboardController extends GetxController {
       if (summary != null) {
         todayCalories.value = summary.totalCalories;
         todayProtein.value = summary.totalProtein;
+        todayCarbs.value = summary.totalCarbs;
+        todayFat.value = summary.totalFat;
         todayWater.value = summary.totalWater;
         todayWorkoutMinutes.value = summary.workoutMinutes;
         todayBurnedCalories.value = summary.totalCaloriesBurned;
-        
-        // Load latest weight if available in summary (assuming most recent log)
-        // or keep as is if we don't have it in summary yet
+        todayWeight.value = summary.totalCaloriesBurned > 0 ? 0.0 : 0.0; // Placeholder logic
       }
 
       _calculateProgress();
+      await calculateStreak();
       lastSyncTime.value = DateTime.now();
       print('✅ Dashboard data loaded for $dateKey');
     } catch (e) {
@@ -118,6 +127,44 @@ class DashboardController extends GetxController {
       print('❌ Dashboard error: $e');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Update selected date
+  Future<void> updateSelectedDate(DateTime date) async {
+    today.value = date;
+    await loadDashboardData();
+  }
+
+  /// Calculate user's current streak
+  Future<void> calculateStreak() async {
+    try {
+      int streak = 0;
+      DateTime checkDate = DateTime.now();
+      
+      while (true) {
+        final dateKey = DateUtils.getDateKey(date: checkDate);
+        final summary = await _dailyLogRepository.getDailyLogSummaryForDate(dateKey);
+        
+        if (summary != null && (summary.totalCalories > 0 || summary.workoutMinutes > 0 || summary.totalWater > 0)) {
+          streak++;
+          checkDate = checkDate.subtract(const Duration(days: 1));
+        } else {
+          // If it's today and no data yet, don't break the streak from yesterday
+          if (DateUtils.getDateKey(date: checkDate) == DateUtils.getDateKey(date: DateTime.now())) {
+            checkDate = checkDate.subtract(const Duration(days: 1));
+            continue;
+          }
+          break;
+        }
+        
+        // Safety break
+        if (streak > 365) break;
+      }
+      
+      streakCount.value = streak;
+    } catch (e) {
+      print('⚠️ Error calculating streak: $e');
     }
   }
 
@@ -197,7 +244,7 @@ class DashboardController extends GetxController {
   num getGoalRemaining(String goal) {
     switch (goal) {
       case 'calories':
-        return (caloriesGoal.value - todayCalories.value).clamp(0, double.infinity);
+        return remainingCalories;
       case 'protein':
         return (proteinGoal.value - todayProtein.value).clamp(0, double.infinity);
       case 'water':
@@ -211,6 +258,12 @@ class DashboardController extends GetxController {
     }
   }
 
+  /// Get remaining calories (Goal - Consumed + Exercise)
+  double get remainingCalories {
+    final remaining = caloriesGoal.value - todayCalories.value + todayBurnedCalories.value;
+    return remaining.clamp(0, double.infinity);
+  }
+
   /// Get goal status string
   String getGoalStatusString(String goal) {
     if (isGoalMet(goal)) {
@@ -221,8 +274,9 @@ class DashboardController extends GetxController {
 
       switch (goal) {
         case 'calories':
+          return '${remainingCalories.toStringAsFixed(0)} left';
         case 'water':
-          return '${remaining.toStringAsFixed(0)} left';
+          return '${remaining.toStringAsFixed(0)} ml left';
         case 'protein':
           return '${remaining.toStringAsFixed(1)}g left';
         case 'workout':

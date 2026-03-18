@@ -79,6 +79,10 @@ class HydrationScreen extends StatelessWidget {
 
                             // Custom Amount
                             _buildCustomAmountCard(context, controller),
+                            const SizedBox(height: 24),
+
+                            // Water Logs List
+                            _buildLogsList(context, controller),
                           ],
                         ),
                       ),
@@ -214,6 +218,90 @@ class HydrationScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLogsList(BuildContext context, HydrationController controller) {
+    if (controller.waterLogs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Logs Today',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: controller.waterLogs.length,
+          itemBuilder: (context, index) {
+            final log = controller.waterLogs[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const Icon(Icons.water_drop, color: Colors.blue),
+                title: Text('${log.mlConsumed.toStringAsFixed(0)} ml'),
+                subtitle: Text(
+                  '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: () => _showEditDialog(context, controller, log),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      onPressed: () => controller.deleteLog(log),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showEditDialog(BuildContext context, HydrationController controller, dynamic log) {
+    final editCtrl = TextEditingController(text: log.mlConsumed.toStringAsFixed(0));
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Edit Water Amount'),
+        content: TextField(
+          controller: editCtrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Amount (ml)',
+            suffixText: 'ml',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newMl = double.tryParse(editCtrl.text);
+              if (newMl != null && newMl > 0) {
+                controller.updateWaterAmount(log, newMl);
+                Get.back();
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
       ),
     );
   }
