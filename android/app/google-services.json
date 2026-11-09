@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "773988908810",
+    "project_id": "active-health-f8654",
+    "storage_bucket": "active-health-f8654.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:773988908810:android:0d6045b3ff04ac621f44f3",
+        "android_client_info": {
+          "package_name": "com.example.active_tracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "773988908810-kgpm6p1b04room6rsoo29soq6j1sh81r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.active_tracker",
+            "certificate_hash": "9359f07b9c53dc213127fecd2e4ddfc27268da34"
+          }
+        },
+        {
+          "client_id": "773988908810-g9edgsr32bj76ncpc545e0r29p54mfu5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuHTXOKlbdvx0EMQBxk7zS0LnNCUbsn5w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "773988908810-g9edgsr32bj76ncpc545e0r29p54mfu5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "773988908810-cib8t1sveptlfeevld2tjeqdrppmf2ke.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.activeTracker"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
