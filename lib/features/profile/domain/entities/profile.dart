@@ -20,6 +20,7 @@ class Profile {
     this.waterMlPerKg = 35,
     this.workoutWaterBoost = true,
     this.theme = ThemePreference.system,
+    this.photo,
   });
 
   final double weightKg;
@@ -34,6 +35,8 @@ class Profile {
   final bool workoutWaterBoost;
   final ThemePreference theme;
 
+  final String? photo;
+
   Profile copyWith({
     double? weightKg,
     double? heightCm,
@@ -44,6 +47,7 @@ class Profile {
     int? waterMlPerKg,
     bool? workoutWaterBoost,
     ThemePreference? theme,
+    String? Function()? photo,
   }) => Profile(
     weightKg: weightKg ?? this.weightKg,
     heightCm: heightCm ?? this.heightCm,
@@ -54,6 +58,7 @@ class Profile {
     waterMlPerKg: waterMlPerKg ?? this.waterMlPerKg,
     workoutWaterBoost: workoutWaterBoost ?? this.workoutWaterBoost,
     theme: theme ?? this.theme,
+    photo: photo != null ? photo() : this.photo,
   );
 
   @override
@@ -67,9 +72,21 @@ class Profile {
       other.proteinGPerKg == proteinGPerKg &&
       other.waterMlPerKg == waterMlPerKg &&
       other.workoutWaterBoost == workoutWaterBoost &&
-      other.theme == theme;
+      other.theme == theme &&
+      other.photo == photo;
 
   @override
   int get hashCode =>
-      Object.hash(weightKg, heightCm, age, sex, burnTargetKcal, proteinGPerKg, waterMlPerKg, workoutWaterBoost, theme);
+      Object.hash(
+    weightKg,
+    heightCm,
+    age,
+    sex,
+    burnTargetKcal,
+    proteinGPerKg,
+    waterMlPerKg,
+    workoutWaterBoost,
+    theme,
+    photo,
+  );
 }

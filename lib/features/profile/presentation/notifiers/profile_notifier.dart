@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/core_providers.dart';
@@ -5,6 +7,7 @@ import '../../../../core/sync/sync_controller.dart';
 import '../../../../core/result.dart';
 import '../../domain/entities/profile.dart';
 import '../../domain/use_cases/edit_profile.dart';
+import '../../domain/use_cases/profile_photo.dart';
 import '../providers.dart';
 
 final profileProvider = AsyncNotifierProvider<ProfileNotifier, Profile?>(ProfileNotifier.new);
@@ -52,5 +55,32 @@ class ProfileNotifier extends AsyncNotifier<Profile?> {
     state = AsyncData(next);
     final result = await ref.read(editProfileProvider).save(uid, next);
     if (result is Err<Profile> && ref.mounted) state = AsyncData(current);
+  }
+
+  Future<String?> pickPhoto(PhotoSource source) async {
+    final picked = await ref.read(photoPickerProvider).pick(source);
+    if (!ref.mounted) return null;
+    return switch (picked) {
+      Ok(value: final bytes?) => _setPhoto(bytes),
+      Ok() => null,
+      Err(:final failure) => failure.message,
+    };
+  }
+
+  Future<String?> removePhoto() => _setPhoto(null);
+
+  Future<String?> _setPhoto(Uint8List? bytes) async {
+    final current = state.value;
+    final uid = await ref.read(currentUidProvider.future);
+    if (current == null || uid == null) return 'You are signed out.';
+    final result = await ref.read(setProfilePhotoProvider)(uid, current, bytes);
+    if (!ref.mounted) return null;
+    switch (result) {
+      case Ok(:final value):
+        state = AsyncData(value);
+        return null;
+      case Err(:final failure):
+        return failure.message;
+    }
   }
 }

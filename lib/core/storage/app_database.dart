@@ -25,7 +25,7 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 5;
+  static const version = 6;
 
   static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
     final f = factory ?? databaseFactory;
@@ -43,6 +43,7 @@ class AppDatabase {
               await db.execute('ALTER TABLE ${Tables.gymSessions} ADD COLUMN exercises TEXT');
               await db.execute(_routinesTable);
             }
+            if (from < 6) await db.execute('ALTER TABLE ${Tables.profile} ADD COLUMN photo TEXT');
             return;
           }
           for (final t in Tables.all.reversed) {
@@ -88,6 +89,7 @@ class AppDatabase {
           water_ml_per_kg INTEGER NOT NULL DEFAULT 35,
           workout_water_boost INTEGER NOT NULL DEFAULT 1,
           theme_mode TEXT NOT NULL DEFAULT 'system',
+          photo TEXT,
           $_sync
         )''')
       ..execute('''

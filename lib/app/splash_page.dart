@@ -5,6 +5,7 @@ import '../core/result.dart';
 import '../core/theme/app_palette.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/buttons.dart';
+import '../core/widgets/app_logo.dart';
 import '../core/widgets/glass.dart';
 import '../features/profile/presentation/notifiers/profile_notifier.dart';
 import 'sign_out_button.dart';
@@ -25,7 +26,7 @@ class SplashPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const IconTile(icon: Icons.local_fire_department_rounded, colors: Metric.cta, size: 72),
+                  const AppLogo(size: 88),
                   const SizedBox(height: 20),
                   Text('Active Tracker', style: AppText.display.copyWith(color: p.text)),
                   const SizedBox(height: 24),

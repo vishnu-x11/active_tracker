@@ -34,6 +34,7 @@ void main() {
           appDatabaseProvider.overrideWithValue(db!),
           displayNameProvider.overrideWithValue('Test User'),
           accountLabelProvider.overrideWithValue('test@example.com'),
+          photoUrlProvider.overrideWithValue(null),
           todayProvider.overrideWithValue(DateTime(2026, 11, 5)),
           currentUidProvider.overrideWith((ref) => uid.stream),
           authRepositoryProvider.overrideWithValue(auth),
@@ -99,7 +100,7 @@ void main() {
     expect(find.text('BURNED TODAY'), findsOneWidget);
   });
 
-  testWidgets('signing out from the Profile tab returns to login', (tester) async {
+  testWidgets('signing out from the Profile tab asks first, then returns to login', (tester) async {
     await pumpApp(tester);
     uid.add('leaving-user');
     await settleWithIo(tester);
@@ -120,6 +121,15 @@ void main() {
     await tester.drag(find.byType(ProfileScreen), const Offset(0, -300));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign out?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(auth.calls, isNot(contains('signOut')));
+
+    await tester.tap(find.text('Sign out'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Sign out')));
     await tester.pump();
     expect(auth.calls.last, 'signOut');
     uid.add(null);

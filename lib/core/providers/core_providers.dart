@@ -27,6 +27,11 @@ final displayNameProvider = Provider<String?>((ref) {
   return ref.watch(firebaseAuthProvider).currentUser?.displayName;
 });
 
+final photoUrlProvider = Provider<String?>((ref) {
+  ref.watch(currentUidProvider);
+  return ref.watch(firebaseAuthProvider).currentUser?.photoURL;
+});
+
 final accountLabelProvider = Provider<String?>((ref) {
   ref.watch(currentUidProvider);
   final user = ref.watch(firebaseAuthProvider).currentUser;

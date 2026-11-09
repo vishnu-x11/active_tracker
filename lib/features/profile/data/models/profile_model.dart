@@ -11,6 +11,7 @@ abstract final class ProfileColumns {
   static const waterMlPerKg = 'water_ml_per_kg';
   static const workoutBoost = 'workout_water_boost';
   static const theme = 'theme_mode';
+  static const photo = 'photo';
   static const updatedAt = 'updated_at';
   static const synced = 'synced';
 }
@@ -32,6 +33,7 @@ extension ProfileRowToEntity on Map<String, Object?> {
       (t) => t.name == this[ProfileColumns.theme],
       orElse: () => ThemePreference.system,
     ),
+    photo: this[ProfileColumns.photo] as String?,
   );
 }
 
@@ -47,6 +49,7 @@ extension ProfileToRow on Profile {
     ProfileColumns.waterMlPerKg: waterMlPerKg,
     ProfileColumns.workoutBoost: workoutWaterBoost ? 1 : 0,
     ProfileColumns.theme: theme.name,
+    ProfileColumns.photo: photo,
     ProfileColumns.updatedAt: updatedAt,
     ProfileColumns.synced: 0,
   };

@@ -28,6 +28,7 @@ void main() {
           appDatabaseProvider.overrideWithValue(db!),
           displayNameProvider.overrideWithValue('Test User'),
           accountLabelProvider.overrideWithValue('test@example.com'),
+          photoUrlProvider.overrideWithValue(null),
           todayProvider.overrideWithValue(DateTime(2026, 11, 5)),
           currentUidProvider.overrideWith((ref) => Stream.value('test-uid')),
         ],

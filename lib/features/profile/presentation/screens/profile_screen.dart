@@ -14,6 +14,7 @@ import '../../../../core/widgets/segmented.dart';
 import '../../domain/entities/profile.dart';
 import '../../domain/use_cases/edit_profile.dart';
 import '../notifiers/profile_notifier.dart';
+import '../widgets/profile_avatar.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key, this.accountRows = const []});
@@ -49,19 +50,7 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: Metric.burn),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        _initials(name),
-                        style: AppText.title.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
-                      ),
-                    ),
+                    const ProfileAvatar(),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -217,12 +206,6 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static String _initials(String? name) {
-    final parts = (name ?? '').trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
-    if (parts.isEmpty) return '·';
-    return (parts.first[0] + (parts.length > 1 ? parts.last[0] : '')).toUpperCase();
   }
 
   static String _bmiLabel(double b) => b < 18.5 ? 'Under' : (b < 25 ? 'Healthy' : (b < 30 ? 'Over' : 'Obese'));

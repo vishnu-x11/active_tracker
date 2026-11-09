@@ -52,6 +52,11 @@ final class SyncFailure extends Failure {
   final Object? cause;
 }
 
+final class DeviceFailure extends Failure {
+  const DeviceFailure(super.message, [this.cause]);
+  final Object? cause;
+}
+
 final class AuthFailure extends Failure {
   const AuthFailure(super.message, [this.cause]);
   final Object? cause;

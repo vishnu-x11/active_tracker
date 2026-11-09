@@ -51,6 +51,7 @@ Future<AppDatabase> pumpFeature(
         newIdProvider.overrideWithValue(() => 'id${n++}'),
         displayNameProvider.overrideWithValue('Test User'),
         accountLabelProvider.overrideWithValue('test@example.com'),
+        photoUrlProvider.overrideWithValue(null),
         speakerProvider.overrideWithValue(speaker ?? FakeSpeaker()),
         ...overrides,
       ],

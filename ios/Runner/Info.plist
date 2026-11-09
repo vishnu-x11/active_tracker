@@ -7,6 +7,10 @@
 		<string>audio</string>
 		<string>location</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Active Tracker uses the camera to take your profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Active Tracker lets you choose a profile photo from your library.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Active Tracker uses your location to record the route, distance and pace of your runs.</string>
 	<key>CFBundleDevelopmentRegion</key>

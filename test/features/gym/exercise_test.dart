@@ -83,11 +83,7 @@ void main() {
         intensity: GymIntensity.hard,
         weightKg: 75,
         exercises: const [
-          ExerciseLog(
-            name: 'Bench press',
-            group: 'chest',
-            sets: [SetEntry(kg: 60, reps: 8), SetEntry(kg: 0, reps: 0)],
-          ),
+          ExerciseLog(name: 'Bench press', group: 'chest', sets: [SetEntry(kg: 60, reps: 8), SetEntry(kg: 0, reps: 0)]),
           ExerciseLog(name: 'Plank', group: 'core', sets: [SetEntry(kg: 0, reps: 0)]),
         ],
       )).valueOrNull!;
