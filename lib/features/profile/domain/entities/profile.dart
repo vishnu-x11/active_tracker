@@ -76,8 +76,7 @@ class Profile {
       other.photo == photo;
 
   @override
-  int get hashCode =>
-      Object.hash(
+  int get hashCode => Object.hash(
     weightKg,
     heightCm,
     age,

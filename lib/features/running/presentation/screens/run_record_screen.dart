@@ -47,7 +47,9 @@ class RunRecordScreen extends ConsumerWidget {
             ],
           ),
         );
-        if ((leave ?? false) && context.mounted) context.pop();
+        if (!(leave ?? false) || !context.mounted) return;
+        await ref.read(runRecorderProvider.notifier).discard();
+        if (context.mounted) context.pop();
       },
       child: Scaffold(
         body: Stack(
@@ -77,6 +79,8 @@ class RunRecordScreen extends ConsumerWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    const _GpsChip(),
                     const Spacer(),
                     const _Panel(),
                   ],
@@ -129,6 +133,36 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
+class _GpsChip extends ConsumerWidget {
+  const _GpsChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final signal = ref.watch(runRecorderProvider.select((s) => s.problem == null ? s.signal : GpsSignal.good));
+    if (signal == GpsSignal.good) return const SizedBox.shrink();
+    final searching = signal == GpsSignal.searching;
+    return Semantics(
+      liveRegion: true,
+      child: Glass(
+        kind: GlassKind.control,
+        radius: 16,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(searching ? Icons.gps_not_fixed_rounded : Icons.gps_off_rounded, size: 16, color: Metric.burnDot),
+            const SizedBox(width: 6),
+            Text(
+              searching ? 'Finding GPS…' : 'Weak GPS signal',
+              style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: context.palette.text),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Panel extends ConsumerWidget {
   const _Panel();
 
@@ -147,6 +181,14 @@ class _Panel extends ConsumerWidget {
         children: [
           if (s.problem != null) ...[
             _Problem(problem: s.problem!, onSettings: n.openSettings),
+            const SizedBox(height: 12),
+          ],
+          if (s.restored) ...[
+            Text(
+              'We kept your unfinished run. Tap Resume to carry on.',
+              textAlign: TextAlign.center,
+              style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: p.accentText),
+            ),
             const SizedBox(height: 12),
           ],
           if (s.coach case final c?) ...[_Coach(view: c), const SizedBox(height: 12)],

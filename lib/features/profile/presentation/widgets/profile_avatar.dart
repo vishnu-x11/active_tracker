@@ -10,6 +10,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../domain/use_cases/profile_photo.dart';
 import '../notifiers/profile_notifier.dart';
+import '../screens/photo_crop_screen.dart';
 
 class ProfileAvatar extends ConsumerStatefulWidget {
   const ProfileAvatar({super.key, this.size = 64});
@@ -50,14 +51,16 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
     setState(() => _busy = true);
     final n = ref.read(profileProvider.notifier);
     final error = switch (action) {
-      'camera' => await n.pickPhoto(PhotoSource.camera),
-      'gallery' => await n.pickPhoto(PhotoSource.gallery),
+      'camera' => await n.pickPhoto(PhotoSource.camera, _frame),
+      'gallery' => await n.pickPhoto(PhotoSource.gallery, _frame),
       _ => await n.removePhoto(),
     };
     if (!mounted) return;
     setState(() => _busy = false);
     if (error != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
   }
+
+  Future<CropBox?> _frame(Uint8List photo) async => mounted ? showPhotoCrop(context, photo) : null;
 
   @override
   Widget build(BuildContext context) {

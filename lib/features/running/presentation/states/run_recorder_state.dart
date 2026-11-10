@@ -13,6 +13,8 @@ enum RecorderStatus {
   bool get stopped => this == paused || this == autoPaused;
 }
 
+enum GpsSignal { searching, weak, good }
+
 class RunRecorderState {
   const RunRecorderState({
     this.status = RecorderStatus.ready,
@@ -27,6 +29,8 @@ class RunRecorderState {
     this.here,
     this.settings = const RunSettings(),
     this.coach,
+    this.signal = GpsSignal.searching,
+    this.restored = false,
   });
 
   final RecorderStatus status;
@@ -46,6 +50,8 @@ class RunRecorderState {
 
   final RunSettings settings;
   final CoachView? coach;
+  final GpsSignal signal;
+  final bool restored;
 
   double get meters => TrackMath.distance(points);
   double get km => meters / 1000;
@@ -76,6 +82,8 @@ class RunRecorderState {
     TrackPoint? here,
     RunSettings? settings,
     CoachView? Function()? coach,
+    GpsSignal? signal,
+    bool? restored,
   }) => RunRecorderState(
     status: status ?? this.status,
     points: points ?? this.points,
@@ -89,6 +97,8 @@ class RunRecorderState {
     here: here ?? this.here,
     settings: settings ?? this.settings,
     coach: coach != null ? coach() : this.coach,
+    signal: signal ?? this.signal,
+    restored: restored ?? this.restored,
   );
 
   @override
@@ -105,7 +115,9 @@ class RunRecorderState {
       other.weightKg == weightKg &&
       other.here == here &&
       other.settings == settings &&
-      other.coach == coach;
+      other.coach == coach &&
+      other.signal == signal &&
+      other.restored == restored;
 
   @override
   int get hashCode => Object.hash(
@@ -121,5 +133,7 @@ class RunRecorderState {
     here,
     settings,
     coach,
+    signal,
+    restored,
   );
 }

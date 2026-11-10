@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -33,6 +35,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey()
     }
 
     buildTypes {
@@ -50,4 +53,12 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+fun mapsApiKey(): String {
+    val props = Properties()
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { props.load(it) }
+    props.getProperty("MAPS_API_KEY")?.takeIf { it.isNotBlank() }?.let { return it }
+    val services = file("google-services.json").takeIf { it.exists() }?.readText() ?: return ""
+    return Regex("\"current_key\"\\s*:\\s*\"([^\"]+)\"").find(services)?.groupValues?.get(1) ?: ""
 }

@@ -197,5 +197,7 @@ class AppDatabase {
   Future<void> setSetting(String key, String value) =>
       db.insert(Tables.settings, {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
 
+  Future<void> deleteSetting(String key) => db.delete(Tables.settings, where: 'key = ?', whereArgs: [key]);
+
   Future<void> close() => db.close();
 }

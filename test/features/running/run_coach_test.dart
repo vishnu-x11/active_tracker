@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:active_tracker/core/providers/core_providers.dart';
 import 'package:active_tracker/core/storage/app_database.dart';
 import 'package:active_tracker/features/running/domain/entities/run_settings.dart';
 import 'package:active_tracker/features/running/domain/entities/track_point.dart';
@@ -9,7 +10,6 @@ import 'package:active_tracker/features/running/presentation/notifiers/run_recor
 import 'package:active_tracker/features/running/presentation/providers.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_record_screen.dart';
 import 'package:active_tracker/features/running/presentation/states/run_recorder_state.dart';
-import 'package:active_tracker/features/running/presentation/widgets/route_map.dart';
 import 'package:active_tracker/features/running/presentation/widgets/run_share_card.dart';
 import 'package:active_tracker/features/running/domain/entities/run.dart';
 import 'package:flutter/material.dart';
@@ -113,9 +113,19 @@ void main() {
     final m = MotionDetector()..reset(0, at(0));
     expect(m.onFix(at(2), 1000), isFalse);
     expect(m.isStill(7000), isFalse);
+    expect(m.onFix(at(3), 7500), isFalse);
     expect(m.isStill(8000), isTrue);
     expect(m.onFix(at(7), 9000), isTrue);
     expect(m.isStill(9500), isFalse);
+  });
+
+  test('losing the GPS signal is not standing still; speed counts as moving', () {
+    final m = MotionDetector()..reset(0, at(0));
+    expect(m.onFix(at(1), 1000), isFalse);
+    expect(m.isStill(20000), isFalse);
+    expect(m.onFix(at(1), 20000, speed: 2.5), isTrue);
+    expect(m.onFix(at(1), 29000), isFalse);
+    expect(m.isStill(29000), isTrue);
   });
 
   testWidgets('auto-pause stops the clock, moving resumes it, and the voice coach speaks', (tester) async {
@@ -127,11 +137,7 @@ void main() {
       routes: [GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen())],
       initial: '/rec',
       speaker: speaker,
-      overrides: [
-        locationSourceProvider.overrideWithValue(gps),
-        mapTilesProvider.overrideWithValue(false),
-        recorderClockProvider.overrideWithValue(() => now),
-      ],
+      overrides: [locationSourceProvider.overrideWithValue(gps), recorderClockProvider.overrideWithValue(() => now)],
     );
     final container = ProviderScope.containerOf(tester.element(find.byType(RunRecordScreen)));
     RunRecorderState s() => container.read(runRecorderProvider);
@@ -152,6 +158,10 @@ void main() {
 
     now = now.add(const Duration(seconds: 9));
     await tester.pump(const Duration(seconds: 1));
+    expect(s().status, RecorderStatus.recording);
+    final last = s().points.last;
+    gps.controller.add(TrackPoint(lat: last.lat, lng: last.lng, t: now.millisecondsSinceEpoch));
+    await tester.pump(const Duration(seconds: 1));
     expect(s().status, RecorderStatus.autoPaused);
     expect(find.text('Auto-paused'), findsOneWidget);
     expect(s().elapsedMs, 303000);
@@ -168,6 +178,7 @@ void main() {
     await tester.tap(find.text('Finish'));
     await settleWithIo(tester, rounds: 10);
     expect(speaker.said.last, startsWith('Run finished. 1 kilometre in 5 minutes'));
+    expect(await tester.runAsync(() => container.read(appDatabaseProvider).setting('run.recording')), isNull);
   });
 
   testWidgets('run settings: switching to intervals is saved and turns auto-pause off', (tester) async {
@@ -177,7 +188,7 @@ void main() {
       routes: [GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen())],
       initial: '/rec',
       height: 2532,
-      overrides: [locationSourceProvider.overrideWithValue(gps), mapTilesProvider.overrideWithValue(false)],
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
     );
     await tester.tap(find.byTooltip('Run settings'));
     await tester.pumpAndSettle();

@@ -15,9 +15,9 @@ class ImagePhotoPicker implements PhotoPicker {
     try {
       final file = await _picker.pickImage(
         source: source == PhotoSource.camera ? ImageSource.camera : ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 90,
         preferredCameraDevice: CameraDevice.front,
       );
       return Ok(file == null ? null : await file.readAsBytes());

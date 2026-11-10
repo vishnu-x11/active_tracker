@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:active_tracker/core/result.dart';
 import 'package:active_tracker/core/storage/app_database.dart';
+import 'package:active_tracker/features/profile/data/data_sources/image_photo_cropper.dart';
 import 'package:active_tracker/features/profile/data/data_sources/profile_local_data_source.dart';
 import 'package:active_tracker/features/profile/data/repositories/profile_repository_impl.dart';
 import 'package:active_tracker/features/profile/domain/entities/profile.dart';
@@ -11,6 +12,7 @@ import 'package:active_tracker/features/profile/profile_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../helpers/app_harness.dart';
@@ -57,6 +59,28 @@ void main() {
     expect((await repo.get('p1')).valueOrNull!.photo, isNull);
   });
 
+  test('the cropper cuts the chosen square and shrinks big photos', () async {
+    final source = img.Image(width: 40, height: 20);
+    img.fill(source, color: img.ColorRgb8(0, 0, 255));
+    img.fillRect(source, x1: 20, y1: 0, x2: 39, y2: 19, color: img.ColorRgb8(255, 0, 0));
+    final png = img.encodePng(source);
+
+    final right = await const ImagePhotoCropper().crop(png, const CropBox(left: 20, top: 0, size: 20));
+    final out = img.decodeJpg(right.valueOrNull!)!;
+    expect((out.width, out.height), (20, 20));
+    expect(out.getPixel(10, 10).r, greaterThan(200));
+
+    final small = await const ImagePhotoCropper(side: 8).crop(png, const CropBox(left: -5, top: 3, size: 99));
+    final shrunk = img.decodeJpg(small.valueOrNull!)!;
+    expect((shrunk.width, shrunk.height), (8, 8));
+
+    final bad = await const ImagePhotoCropper().crop(
+      Uint8List.fromList([1, 2, 3]),
+      const CropBox(left: 0, top: 0, size: 1),
+    );
+    expect((bad as Err).failure.message, "Couldn't read that photo. Please pick another one.");
+  });
+
   testWidgets('tap the avatar to choose, show and remove a photo', (tester) async {
     final picker = FakePicker(Ok(pixel));
     final db = await pumpFeature(
@@ -78,6 +102,9 @@ void main() {
     expect(find.text('Remove photo'), findsNothing);
     await tester.tap(find.text('Choose from gallery'));
     await settleWithIo(tester);
+    expect(find.text('Move and scale'), findsOneWidget);
+    await tester.tap(find.text('Use photo'));
+    await settleWithIo(tester, rounds: 12);
     expect(picker.asked, [PhotoSource.gallery]);
     expect(find.text('TU'), findsNothing);
     final row = await tester.runAsync(() => db.db.query(Tables.profile));

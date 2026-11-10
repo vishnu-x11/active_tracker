@@ -7,7 +7,6 @@ import 'package:active_tracker/features/running/presentation/notifiers/run_recor
 import 'package:active_tracker/features/running/presentation/providers.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_log_screen.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_record_screen.dart';
-import 'package:active_tracker/features/running/presentation/widgets/route_map.dart';
 import 'package:active_tracker/features/running/running_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,9 +43,9 @@ class FakeLocation implements LocationSource {
   final backgroundCalls = <bool>[];
 
   @override
-  Stream<TrackPoint> fixes({double maxAccuracyM = 25, bool background = false}) {
+  Stream<GpsFix> fixes({bool background = false}) {
     backgroundCalls.add(background);
-    return controller.stream;
+    return controller.stream.map(GpsFix.new);
   }
 
   @override
@@ -105,7 +104,7 @@ void main() {
       ],
       initial: '/start',
       height: 6000,
-      overrides: [locationSourceProvider.overrideWithValue(gps), mapTilesProvider.overrideWithValue(false)],
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
     );
     await tester.tap(find.text('go'));
     await settleWithIo(tester);
@@ -151,13 +150,58 @@ void main() {
     expect(find.text('Pace per km'), findsOneWidget);
   });
 
+  testWidgets('a run in progress survives the app closing and can be discarded', (tester) async {
+    final gps = FakeLocation()..here = const TrackPoint(lat: 12.9, lng: 77.6, t: 0);
+    final db = await pumpFeature(
+      tester,
+      routes: [
+        GoRoute(
+          path: '/start',
+          builder: (c, s) => TextButton(onPressed: () => c.push('/rec'), child: const Text('go')),
+        ),
+        GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen()),
+      ],
+      initial: '/start',
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
+    );
+    await tester.tap(find.text('go'));
+    await settleWithIo(tester);
+    await tester.tap(find.text('Start'));
+    await settleWithIo(tester);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final p in track(51, startT: now)) {
+      gps.controller.add(p);
+    }
+    await settleWithIo(tester);
+    await tester.tap(find.text('Pause'));
+    await settleWithIo(tester);
+    expect(await tester.runAsync(() => db.setting('run.recording')), isNotNull);
+
+    final container = ProviderScope.containerOf(tester.element(find.byType(RunRecordScreen)));
+    container.invalidate(runRecorderProvider);
+    await settleWithIo(tester);
+    final restored = container.read(runRecorderProvider);
+    expect(restored.restored, isTrue);
+    expect(restored.points, hasLength(51));
+    expect(find.text('0.50 km'), findsOneWidget);
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.text('We kept your unfinished run. Tap Resume to carry on.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await settleWithIo(tester);
+    expect(find.text('go'), findsOneWidget);
+    expect(await tester.runAsync(() => db.setting('run.recording')), isNull);
+  });
+
   testWidgets('location blocked shows the reason', (tester) async {
     final gps = FakeLocation()..problem = LocationProblem.deniedForever;
     await pumpFeature(
       tester,
       routes: [GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen())],
       initial: '/rec',
-      overrides: [locationSourceProvider.overrideWithValue(gps), mapTilesProvider.overrideWithValue(false)],
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
     );
     await tester.tap(find.text('Start'));
     await settleWithIo(tester);

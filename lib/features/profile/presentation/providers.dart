@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../data/data_sources/image_photo_cropper.dart';
 import '../data/data_sources/image_photo_picker.dart';
 import '../data/data_sources/profile_local_data_source.dart';
 import '../data/repositories/profile_repository_impl.dart';
@@ -23,4 +24,5 @@ final saveBodyStatsProvider = Provider((ref) => SaveBodyStats(ref.watch(profileR
 final editProfileProvider = Provider((ref) => EditProfile(ref.watch(profileRepositoryProvider)));
 
 final photoPickerProvider = Provider<PhotoPicker>((ref) => ImagePhotoPicker());
+final photoCropperProvider = Provider<PhotoCropper>((ref) => const ImagePhotoCropper());
 final setProfilePhotoProvider = Provider((ref) => SetProfilePhoto(ref.watch(profileRepositoryProvider)));
