@@ -11,6 +11,18 @@ abstract interface class PhotoPicker {
   Future<Result<Uint8List?>> pick(PhotoSource source);
 }
 
+class CropBox {
+  const CropBox({required this.left, required this.top, required this.size});
+
+  final double left;
+  final double top;
+  final double size;
+}
+
+abstract interface class PhotoCropper {
+  Future<Result<Uint8List>> crop(Uint8List source, CropBox box);
+}
+
 class SetProfilePhoto {
   const SetProfilePhoto(this._repository);
 

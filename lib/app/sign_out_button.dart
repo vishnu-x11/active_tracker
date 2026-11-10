@@ -31,10 +31,7 @@ Future<bool> confirmSignOut(BuildContext context) async {
       backgroundColor: p.pageTop,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       title: Text('Sign out?', style: AppText.title.copyWith(color: p.text)),
-      content: Text(
-        'You can sign back in at any time to see your logs.',
-        style: AppText.body.copyWith(color: p.sub),
-      ),
+      content: Text('You can sign back in at any time to see your logs.', style: AppText.body.copyWith(color: p.sub)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
@@ -42,7 +39,10 @@ Future<bool> confirmSignOut(BuildContext context) async {
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: Text('Sign out', style: TextStyle(fontWeight: FontWeight.w600, color: p.danger)),
+          child: Text(
+            'Sign out',
+            style: TextStyle(fontWeight: FontWeight.w600, color: p.danger),
+          ),
         ),
       ],
     ),

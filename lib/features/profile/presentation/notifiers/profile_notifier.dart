@@ -57,12 +57,24 @@ class ProfileNotifier extends AsyncNotifier<Profile?> {
     if (result is Err<Profile> && ref.mounted) state = AsyncData(current);
   }
 
-  Future<String?> pickPhoto(PhotoSource source) async {
+  Future<String?> pickPhoto(PhotoSource source, Future<CropBox?> Function(Uint8List photo) frame) async {
     final picked = await ref.read(photoPickerProvider).pick(source);
     if (!ref.mounted) return null;
-    return switch (picked) {
-      Ok(value: final bytes?) => _setPhoto(bytes),
-      Ok() => null,
+    final Uint8List bytes;
+    switch (picked) {
+      case Ok(value: final b?):
+        bytes = b;
+      case Ok():
+        return null;
+      case Err(:final failure):
+        return failure.message;
+    }
+    final box = await frame(bytes);
+    if (box == null || !ref.mounted) return null;
+    final cropped = await ref.read(photoCropperProvider).crop(bytes, box);
+    if (!ref.mounted) return null;
+    return switch (cropped) {
+      Ok(:final value) => _setPhoto(value),
       Err(:final failure) => failure.message,
     };
   }

@@ -1,3 +1,4 @@
+import 'package:active_tracker/features/running/presentation/widgets/route_map.dart';
 import 'package:active_tracker/core/providers/core_providers.dart';
 import 'package:active_tracker/core/storage/app_database.dart';
 import 'package:active_tracker/core/theme/app_palette.dart';
@@ -53,6 +54,7 @@ Future<AppDatabase> pumpFeature(
         accountLabelProvider.overrideWithValue('test@example.com'),
         photoUrlProvider.overrideWithValue(null),
         speakerProvider.overrideWithValue(speaker ?? FakeSpeaker()),
+        mapTilesProvider.overrideWithValue(false),
         ...overrides,
       ],
       child: MaterialApp.router(

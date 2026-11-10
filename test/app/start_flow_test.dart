@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:active_tracker/features/running/presentation/widgets/route_map.dart';
 import 'package:active_tracker/app/router.dart';
 import 'package:active_tracker/core/providers/core_providers.dart';
 import 'package:active_tracker/core/storage/app_database.dart';
@@ -35,6 +36,7 @@ void main() {
           displayNameProvider.overrideWithValue('Test User'),
           accountLabelProvider.overrideWithValue('test@example.com'),
           photoUrlProvider.overrideWithValue(null),
+          mapTilesProvider.overrideWithValue(false),
           todayProvider.overrideWithValue(DateTime(2026, 11, 5)),
           currentUidProvider.overrideWith((ref) => uid.stream),
           authRepositoryProvider.overrideWithValue(auth),

@@ -5,6 +5,7 @@ import '../core/theme/app_palette.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/glass.dart';
 import '../core/widgets/layout.dart';
+import '../features/running/presentation/widgets/unfinished_run_prompt.dart';
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -17,7 +18,7 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: PageBackdrop(child: navigationShell),
+      body: PageBackdrop(child: UnfinishedRunPrompt(child: navigationShell)),
       bottomNavigationBar: _FloatingTabBar(
         index: navigationShell.currentIndex,
         onTab: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),

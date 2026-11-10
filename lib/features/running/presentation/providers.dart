@@ -8,14 +8,18 @@ import '../data/data_sources/speaker.dart';
 import '../data/data_sources/track_local_data_source.dart';
 import '../data/repositories/track_repository_impl.dart';
 import '../data/repositories/run_repository_impl.dart';
+import '../data/repositories/recording_repository_impl.dart';
 import '../data/repositories/run_settings_repository_impl.dart';
 import '../domain/entities/run.dart';
 import '../domain/entities/track_point.dart';
 import '../domain/repositories/run_repository.dart';
+import '../domain/entities/recording.dart';
+import '../domain/repositories/recording_repository.dart';
 import '../domain/repositories/run_settings_repository.dart';
 import '../domain/repositories/track_repository.dart';
 import '../domain/use_cases/gps_use_cases.dart';
 import '../domain/use_cases/run_queries.dart';
+import '../domain/use_cases/recording_use_cases.dart';
 import '../domain/use_cases/run_settings_use_cases.dart';
 import '../domain/use_cases/save_run.dart';
 
@@ -66,3 +70,16 @@ final saveRunSettingsProvider = Provider((ref) => SaveRunSettings(ref.watch(runS
 final speakerProvider = Provider<Speaker>((ref) => TtsSpeaker());
 
 final recorderClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
+final recordingRepositoryProvider = Provider<RecordingRepository>(
+  (ref) => RecordingRepositoryImpl(ref.watch(appDatabaseProvider)),
+);
+final getUnfinishedRecordingProvider = Provider(
+  (ref) => GetUnfinishedRecording(ref.watch(recordingRepositoryProvider)),
+);
+final saveRecordingProgressProvider = Provider((ref) => SaveRecordingProgress(ref.watch(recordingRepositoryProvider)));
+final clearRecordingProvider = Provider((ref) => ClearRecording(ref.watch(recordingRepositoryProvider)));
+
+final unfinishedRecordingProvider = FutureProvider.autoDispose<Recording?>(
+  (ref) async => (await ref.watch(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)())).valueOrNull,
+);
