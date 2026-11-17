@@ -1,5 +1,6 @@
 import '../../../../core/result.dart';
 import '../../domain/entities/run.dart';
+import '../../domain/entities/run_analysis.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/repositories/track_repository.dart';
 import '../data_sources/track_local_data_source.dart';
@@ -27,4 +28,12 @@ class TrackRepositoryImpl implements TrackRepository {
 
   @override
   Future<Result<List<Run>>> gpsRuns() => _guard(_local.gpsRuns, "Couldn't load your runs.");
+
+  @override
+  Future<Result<Map<String, TrackAnalysis>>> analyses(int version) =>
+      _guard(() => _local.analyses(version), "Couldn't load your run insights.");
+
+  @override
+  Future<Result<void>> saveAnalyses(Map<String, TrackAnalysis> analyses, int version) =>
+      _guard(() => _local.saveAnalyses(analyses, version), "Couldn't keep your run insights.");
 }

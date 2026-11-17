@@ -153,6 +153,28 @@ class RunSettingsSheet extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 18),
+                const _Label('Background recording'),
+                Glass(
+                  kind: GlassKind.control,
+                  radius: 20,
+                  blur: false,
+                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.battery_saver_rounded, color: p.accentText),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Runs keep recording with the screen off or another app open. If your phone stops it, set '
+                          'this app\'s battery use to Unrestricted.',
+                          style: AppText.small.copyWith(color: p.sub),
+                        ),
+                      ),
+                      TextButton(onPressed: n.openSettings, child: const Text('Settings')),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

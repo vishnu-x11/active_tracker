@@ -1,6 +1,7 @@
 import 'package:active_tracker/core/storage/app_database.dart';
 import 'package:active_tracker/features/progress/data/data_sources/progress_local_data_source.dart';
 import 'package:active_tracker/features/progress/domain/entities/activity_item.dart';
+import 'package:active_tracker/features/progress/domain/entities/goal.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -75,5 +76,20 @@ void main() {
     expect(list[1].type, ActivityType.run);
     expect(list[1].fromGps, isFalse);
     expect(list[0].durationMin, 120);
+  });
+
+  test('a goal of a type this version does not know is skipped, not shown as gym sessions', () async {
+    for (final kind in ['runTime', 'somethingNewer']) {
+      await db.db.insert(Tables.goals, {
+        'sync_id': kind,
+        'kind': kind,
+        'period': 'week',
+        'target': 60,
+        'created_at': 1,
+        'updated_at': 1,
+      });
+    }
+    final goals = await source.goals();
+    expect(goals.map((g) => g.kind), [GoalKind.runTime]);
   });
 }

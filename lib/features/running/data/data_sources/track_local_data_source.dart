@@ -1,13 +1,20 @@
+import 'package:sqflite/sqflite.dart';
+
 import '../../../../core/storage/app_database.dart';
 import '../../domain/entities/run.dart';
+import '../../domain/entities/run_analysis.dart';
 import '../../domain/entities/track_point.dart';
 import '../models/run_model.dart';
+import '../models/track_analysis_model.dart';
 
 abstract interface class TrackLocalDataSource {
   Future<void> saveDraft(Run draft, List<TrackPoint> points);
   Future<List<TrackPoint>> points(String runId);
 
   Future<List<Run>> gpsRuns();
+
+  Future<Map<String, TrackAnalysis>> analyses(int version);
+  Future<void> saveAnalyses(Map<String, TrackAnalysis> analyses, int version);
 }
 
 class TrackLocalDataSourceImpl implements TrackLocalDataSource {
@@ -61,5 +68,20 @@ class TrackLocalDataSourceImpl implements TrackLocalDataSource {
       orderBy: 'started_at',
     );
     return [for (final r in rows) r.toRun()];
+  }
+
+  @override
+  Future<Map<String, TrackAnalysis>> analyses(int version) async {
+    final rows = await _database.db.query(Tables.runAnalysis, where: 'version = ?', whereArgs: [version]);
+    return {for (final r in rows) r['run_sync_id']! as String: r.toTrackAnalysis()};
+  }
+
+  @override
+  Future<void> saveAnalyses(Map<String, TrackAnalysis> analyses, int version) async {
+    final batch = _database.db.batch();
+    for (final e in analyses.entries) {
+      batch.insert(Tables.runAnalysis, e.value.toRow(e.key, version), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
   }
 }

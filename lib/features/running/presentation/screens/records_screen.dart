@@ -75,7 +75,7 @@ class RecordsScreen extends ConsumerWidget {
                                 ),
                                 Text(
                                   r[e] == null
-                                      ? 'Run ${(e.meters / 1000).toStringAsFixed(e == Effort.half ? 1 : 0)} km to set it'
+                                      ? 'Run ${e.distance} to set it'
                                       : '${formatPace(r[e]!.seconds / (e.meters / 1000))} /km · ${shortDate(r[e]!.date)}',
                                   textAlign: TextAlign.center,
                                   style: AppText.small.copyWith(color: p.sub),

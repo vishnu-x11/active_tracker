@@ -125,12 +125,13 @@ class ProgressLocalDataSourceImpl implements ProgressLocalDataSource {
     final rows = await _database.db.query(Tables.goals, where: 'deleted = 0', orderBy: 'created_at');
     return [
       for (final r in rows)
-        Goal(
-          id: r['sync_id']! as String,
-          kind: GoalKind.values.firstWhere((k) => k.name == r['kind'], orElse: () => GoalKind.gymSessions),
-          period: r['period'] == 'month' ? GoalPeriod.month : GoalPeriod.week,
-          target: (r['target']! as num).toDouble(),
-        ),
+        if (GoalKind.values.where((k) => k.name == r['kind']).firstOrNull case final kind?)
+          Goal(
+            id: r['sync_id']! as String,
+            kind: kind,
+            period: r['period'] == 'month' ? GoalPeriod.month : GoalPeriod.week,
+            target: (r['target']! as num).toDouble(),
+          ),
     ];
   }
 

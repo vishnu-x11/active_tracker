@@ -9,12 +9,68 @@ import '../../domain/entities/track_point.dart';
 
 final mapTilesProvider = Provider<bool>((ref) => true);
 
+final _dots = <Color, BitmapDescriptor>{};
+
+Future<BitmapDescriptor> mapDot(Color color, {Color edge = Colors.white, int size = 18}) async {
+  if (_dots[color] case final d?) return d;
+  const px = 54;
+  final recorder = ui.PictureRecorder();
+  const c = Offset(px / 2, px / 2);
+  Canvas(recorder)
+    ..drawCircle(c, px / 2, Paint()..color = edge)
+    ..drawCircle(c, px / 2 - 9, Paint()..color = color);
+  final image = await recorder.endRecording().toImage(px, px);
+  final png = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  return _dots[color] = BitmapDescriptor.bytes(
+    png!.buffer.asUint8List(),
+    width: size.toDouble(),
+    height: size.toDouble(),
+  );
+}
+
+const medalColors = [Color(0xFFFFC93C), Color(0xFFC9D1DC), Color(0xFFD9955A)];
+
+final _medals = <int, BitmapDescriptor>{};
+
+Future<BitmapDescriptor> mapMedal(int rank) async {
+  if (_medals[rank] case final d?) return d;
+  const px = 72;
+  final recorder = ui.PictureRecorder();
+  const c = Offset(px / 2, px / 2);
+  final canvas = Canvas(recorder)
+    ..drawCircle(c, px / 2, Paint()..color = Colors.white)
+    ..drawCircle(c, px / 2 - 6, Paint()..color = medalColors[(rank - 1).clamp(0, 2)]);
+  final tp = TextPainter(
+    text: TextSpan(
+      text: '$rank',
+      style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Color(0xFF3A2A00)),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+  final image = await recorder.endRecording().toImage(px, px);
+  final png = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  return _medals[rank] = BitmapDescriptor.bytes(png!.buffer.asUint8List(), width: 26, height: 26);
+}
+
+typedef MapMedal = ({TrackPoint at, int rank, String title});
+
 class RouteMap extends ConsumerStatefulWidget {
-  const RouteMap({super.key, required this.points, this.follow = false, this.interactive = false, this.here});
+  const RouteMap({
+    super.key,
+    required this.points,
+    this.follow = false,
+    this.interactive = false,
+    this.here,
+    this.medals = const [],
+  });
 
   final List<TrackPoint> points;
   final bool follow;
   final bool interactive;
+  final List<MapMedal> medals;
 
   final TrackPoint? here;
 
@@ -23,6 +79,7 @@ class RouteMap extends ConsumerStatefulWidget {
 }
 
 class _RouteMapState extends ConsumerState<RouteMap> {
+  static const followZoom = 17.0;
   static BitmapDescriptor? _startDot;
   static BitmapDescriptor? _endDot;
 
@@ -38,6 +95,7 @@ class _RouteMapState extends ConsumerState<RouteMap> {
   void initState() {
     super.initState();
     if (_startDot == null || _endDot == null) _loadDots();
+    if (widget.medals.isNotEmpty) _loadMedals();
   }
 
   @override
@@ -46,28 +104,23 @@ class _RouteMapState extends ConsumerState<RouteMap> {
     super.dispose();
   }
 
-  Future<void> _loadDots() async {
-    _startDot ??= await _dot(Metric.startDot);
-    _endDot ??= await _dot(const Color(0xFF0E1018));
+  Future<void> _loadMedals() async {
+    for (final m in widget.medals) {
+      await mapMedal(m.rank);
+    }
     if (mounted) setState(() {});
   }
 
-  static Future<BitmapDescriptor> _dot(Color color) async {
-    const px = 54;
-    final recorder = ui.PictureRecorder();
-    const c = Offset(px / 2, px / 2);
-    Canvas(recorder)
-      ..drawCircle(c, px / 2, Paint()..color = Colors.white)
-      ..drawCircle(c, px / 2 - 9, Paint()..color = color);
-    final image = await recorder.endRecording().toImage(px, px);
-    final png = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    return BitmapDescriptor.bytes(png!.buffer.asUint8List(), width: 18, height: 18);
+  Future<void> _loadDots() async {
+    _startDot ??= await mapDot(Metric.startDot);
+    _endDot ??= await mapDot(const Color(0xFF0E1018));
+    if (mounted) setState(() {});
   }
 
   @override
   void didUpdateWidget(RouteMap old) {
     super.didUpdateWidget(old);
+    if (widget.medals.length != old.medals.length) _loadMedals();
     if (widget.follow) {
       final t = _target;
       if (t != null && (old.here != widget.here || old.points.lastOrNull != widget.points.lastOrNull)) {
@@ -105,9 +158,12 @@ class _RouteMapState extends ConsumerState<RouteMap> {
     final interactive = widget.interactive;
     return RepaintBoundary(
       child: GoogleMap(
-        initialCameraPosition: CameraPosition(target: widget.follow ? target : line.firstOrNull ?? target, zoom: 16),
+        initialCameraPosition: CameraPosition(
+          target: widget.follow ? target : line.firstOrNull ?? target,
+          zoom: widget.follow ? followZoom : 16,
+        ),
         onMapCreated: _onCreated,
-        style: p.mapBg == AppPalette.dark.mapBg ? _darkStyle : null,
+        style: p.mapBg == AppPalette.dark.mapBg ? mapDarkStyle : null,
         myLocationEnabled: widget.follow && widget.here != null,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
@@ -159,13 +215,23 @@ class _RouteMapState extends ConsumerState<RouteMap> {
               icon: _endDot!,
               anchor: const Offset(0.5, 0.5),
             ),
+          for (final (i, m) in widget.medals.indexed)
+            if (_medals[m.rank] case final icon?)
+              Marker(
+                markerId: MarkerId('medal_$i'),
+                position: LatLng(m.at.lat, m.at.lng),
+                icon: icon,
+                anchor: const Offset(0.5, 0.5),
+                zIndexInt: 2,
+                infoWindow: InfoWindow(title: m.title, snippet: 'Lifetime'),
+              ),
         },
       ),
     );
   }
 }
 
-const _darkStyle = '''[
+const mapDarkStyle = '''[
 {"elementType":"geometry","stylers":[{"color":"#1e2422"}]},
 {"elementType":"labels.text.fill","stylers":[{"color":"#8a948f"}]},
 {"elementType":"labels.text.stroke","stylers":[{"color":"#1e2422"}]},

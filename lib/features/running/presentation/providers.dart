@@ -6,18 +6,24 @@ import '../data/data_sources/location_source.dart';
 import '../data/data_sources/run_local_data_source.dart';
 import '../data/data_sources/speaker.dart';
 import '../data/data_sources/track_local_data_source.dart';
+import '../data/repositories/pace_zones_repository_impl.dart';
 import '../data/repositories/track_repository_impl.dart';
 import '../data/repositories/run_repository_impl.dart';
 import '../data/repositories/recording_repository_impl.dart';
 import '../data/repositories/run_settings_repository_impl.dart';
+import '../domain/entities/pace_zones.dart';
 import '../domain/entities/run.dart';
+import '../domain/entities/run_analysis.dart';
 import '../domain/entities/track_point.dart';
 import '../domain/repositories/run_repository.dart';
 import '../domain/entities/recording.dart';
 import '../domain/repositories/recording_repository.dart';
+import '../domain/repositories/pace_zones_repository.dart';
 import '../domain/repositories/run_settings_repository.dart';
 import '../domain/repositories/track_repository.dart';
+import '../domain/use_cases/analyse_runs.dart';
 import '../domain/use_cases/gps_use_cases.dart';
+import '../domain/use_cases/run_insights.dart';
 import '../domain/use_cases/run_queries.dart';
 import '../domain/use_cases/recording_use_cases.dart';
 import '../domain/use_cases/run_settings_use_cases.dart';
@@ -83,3 +89,35 @@ final clearRecordingProvider = Provider((ref) => ClearRecording(ref.watch(record
 final unfinishedRecordingProvider = FutureProvider.autoDispose<Recording?>(
   (ref) async => (await ref.watch(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)())).valueOrNull,
 );
+
+final analyseRunsProvider = Provider((ref) => AnalyseRuns(ref.watch(trackRepositoryProvider)));
+
+final runAnalysesProvider = FutureProvider.autoDispose<List<RunAnalysis>>((ref) async {
+  ref.watch(dataRevisionProvider);
+  return (await ref.watch(analyseRunsProvider)()).valueOrThrow();
+});
+
+final paceZonesRepositoryProvider = Provider<PaceZonesRepository>((ref) {
+  ref.listen(currentUidProvider, (_, _) {});
+  return PaceZonesRepositoryImpl(ref.watch(appDatabaseProvider), uid: () => ref.read(currentUidProvider.future));
+});
+final getPaceZonesProvider = Provider((ref) => GetPaceZones(ref.watch(paceZonesRepositoryProvider)));
+final savePaceZonesProvider = Provider((ref) => SavePaceZones(ref.watch(paceZonesRepositoryProvider)));
+
+final savedPaceZonesProvider = FutureProvider.autoDispose<PaceZones>((ref) async {
+  ref.watch(dataRevisionProvider);
+  return (await ref.watch(getPaceZonesProvider)()).valueOrThrow();
+});
+
+final paceZonesProvider = FutureProvider.autoDispose<PaceZones>((ref) async {
+  final saved = await ref.watch(savedPaceZonesProvider.future);
+  if (!saved.auto) return saved;
+  final runs = await ref.watch(runAnalysesProvider.future);
+  return saved.copyWith(thresholdSec: RacePredictor.thresholdPace(runs, ref.watch(todayProvider)));
+});
+
+final suggestedWorkoutsProvider = FutureProvider.autoDispose<List<SuggestedWorkout>>((ref) async {
+  final runs = await ref.watch(runAnalysesProvider.future);
+  final zones = await ref.watch(paceZonesProvider.future);
+  return WorkoutSuggester.suggest(runs, thresholdSec: zones.thresholdSec, today: ref.watch(todayProvider));
+});

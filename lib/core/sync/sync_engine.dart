@@ -141,7 +141,11 @@ class SyncEngine {
         };
         await _db.transaction((txn) async {
           if (table == Tables.runs) await txn.delete(Tables.runPoints, where: 'run_sync_id = ?', whereArgs: [id]);
-          await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+          if (table == Tables.profile && local.isNotEmpty) {
+            await txn.update(table, row, where: '$key = ?', whereArgs: [id]);
+          } else {
+            await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
           final pts = table == Tables.runs ? doc['points'] : null;
           if (pts is List<Object?>) {
             final batch = txn.batch();

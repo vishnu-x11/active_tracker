@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:active_tracker/core/storage/app_database.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -21,6 +23,7 @@ void main() {
         Tables.gymSessions,
         Tables.runs,
         Tables.runPoints,
+        Tables.runAnalysis,
         Tables.water,
         Tables.protein,
         Tables.presets,
@@ -54,5 +57,35 @@ void main() {
     await app.db.insert(Tables.runPoints, {'run_sync_id': 'r1', 'seq': 0, 'lat': 0, 'lng': 0, 't': 0});
     await app.db.delete(Tables.runs, where: 'sync_id = ?', whereArgs: ['r1']);
     expect(await app.db.query(Tables.runPoints), isEmpty);
+  });
+
+  test('upgrading from version 6 adds run analysis and moves pace zones onto the profile', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v6.db';
+    final old = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 6,
+        onCreate: (db, _) async {
+          await db.execute('CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+          await db.execute('''
+            CREATE TABLE profile (
+              uid TEXT PRIMARY KEY, weight_kg REAL NOT NULL, height_cm REAL NOT NULL, photo TEXT,
+              updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 0
+            )''');
+          await db.insert('profile', {'uid': 'u', 'weight_kg': 75, 'height_cm': 178, 'updated_at': 1, 'synced': 1});
+          await db.insert('app_settings', {'key': 'run.zones', 'value': '{"auto":false}'});
+        },
+      ),
+    );
+    await old.close();
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    final profile = (await upgraded.db.query(Tables.profile)).single;
+    expect(profile['pace_zones'], '{"auto":false}');
+    expect(profile['synced'], 0);
+    expect(await upgraded.setting('run.zones'), isNull);
+    expect(await upgraded.db.query(Tables.runAnalysis), isEmpty);
   });
 }

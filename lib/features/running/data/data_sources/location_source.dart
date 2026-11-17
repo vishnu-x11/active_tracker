@@ -1,17 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../domain/entities/gps_fix.dart';
 import '../../domain/entities/track_point.dart';
 
+export '../../domain/entities/gps_fix.dart';
+
 enum LocationProblem { serviceOff, denied, deniedForever }
-
-class GpsFix {
-  const GpsFix(this.point, {this.accuracy = 0, this.speed = 0});
-
-  final TrackPoint point;
-  final double accuracy;
-  final double speed;
-}
 
 abstract interface class LocationSource {
   Future<LocationProblem?> ensureAccess();
@@ -26,7 +21,8 @@ abstract interface class LocationSource {
 class GeolocatorLocationSource implements LocationSource {
   const GeolocatorLocationSource();
 
-  static const _freshFor = Duration(minutes: 2);
+  static const _freshFor = Duration(seconds: 30);
+  static const _freshAccuracyM = 20;
 
   @override
   Future<LocationProblem?> ensureAccess() async {
@@ -46,13 +42,16 @@ class GeolocatorLocationSource implements LocationSource {
   @override
   Future<TrackPoint?> current() async {
     final last = await Geolocator.getLastKnownPosition();
-    if (last != null && DateTime.now().difference(last.timestamp) < _freshFor && last.accuracy <= 50) {
+    if (last != null && DateTime.now().difference(last.timestamp) < _freshFor && last.accuracy <= _freshAccuracyM) {
       return _point(last);
     }
     try {
       return _point(
         await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Duration(seconds: 20)),
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            timeLimit: Duration(seconds: 15),
+          ),
         ),
       );
     } catch (_) {
@@ -67,7 +66,7 @@ class GeolocatorLocationSource implements LocationSource {
 
   static LocationSettings _settings(bool background) => switch (defaultTargetPlatform) {
     TargetPlatform.android => AndroidSettings(
-      accuracy: LocationAccuracy.best,
+      accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 0,
       intervalDuration: const Duration(seconds: 1),
       foregroundNotificationConfig: background
@@ -81,7 +80,7 @@ class GeolocatorLocationSource implements LocationSource {
           : null,
     ),
     TargetPlatform.iOS => AppleSettings(
-      accuracy: LocationAccuracy.best,
+      accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 0,
       activityType: ActivityType.fitness,
       pauseLocationUpdatesAutomatically: false,

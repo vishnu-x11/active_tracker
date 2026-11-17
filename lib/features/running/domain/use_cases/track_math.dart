@@ -36,11 +36,18 @@ abstract final class TrackMath {
 
   static double distance(List<TrackPoint> pts) => pts.isEmpty ? 0 : cumulative(pts).last;
 
-  static int elevationGain(List<TrackPoint> pts) {
+  static int elevationGain(List<TrackPoint> pts, {double threshold = 3}) {
     var gain = 0.0;
-    for (var i = 1; i < pts.length; i++) {
-      final a = pts[i - 1].alt, b = pts[i].alt;
-      if (a != null && b != null && b - a > 1) gain += b - a;
+    double? low;
+    for (final p in pts) {
+      final a = p.alt;
+      if (a == null) continue;
+      if (low == null || a < low) {
+        low = a;
+      } else if (a - low >= threshold) {
+        gain += a - low;
+        low = a;
+      }
     }
     return gain.round();
   }
@@ -65,11 +72,19 @@ abstract final class TrackMath {
     return out;
   }
 
-  static double? bestEffort(List<TrackPoint> pts, int meters) {
+  static double? bestEffort(List<TrackPoint> pts, int meters) => bestSpan(pts, meters)?.seconds;
+
+  static ({double seconds, int end})? bestSpan(
+    List<TrackPoint> pts,
+    int meters, {
+    List<double>? cumulativeM,
+    List<double>? movingS,
+  }) {
     if (pts.length < 2) return null;
-    final d = cumulative(pts), s = movingSeconds(pts);
+    final d = cumulativeM ?? cumulative(pts), s = movingS ?? movingSeconds(pts);
     if (d.last < meters) return null;
     double? best;
+    var end = 0;
     var j = 0;
     for (var i = 1; i < pts.length; i++) {
       final need = d[i] - meters;
@@ -81,9 +96,34 @@ abstract final class TrackMath {
       final f = span == 0 ? 0.0 : ((need - d[j]) / span).clamp(0.0, 1.0);
       final start = s[j] + f * (s[j + 1] - s[j]);
       final t = s[i] - start;
-      if (t > 0 && (best == null || t < best)) best = t;
+      if (t > 0 && (best == null || t < best)) {
+        best = t;
+        end = i;
+      }
     }
-    return best;
+    return best == null ? null : (seconds: best, end: end);
+  }
+
+  static Map<int, double> paceSeconds(List<TrackPoint> pts, {int windowS = 30, int binS = 5}) {
+    final out = <int, double>{};
+    if (pts.length < 2) return out;
+    final d = cumulative(pts);
+    var j = 0;
+    for (var i = 1; i < pts.length; i++) {
+      if (pts[i].segment != pts[i - 1].segment) continue;
+      final dt = (pts[i].t - pts[i - 1].t) / 1000;
+      if (dt <= 0 || dt > 60) continue;
+      if (pts[j].segment != pts[i].segment) j = i - 1;
+      while (j + 1 < i && pts[i].t - pts[j + 1].t >= windowS * 1000) {
+        j++;
+      }
+      final dist = d[i] - d[j];
+      if (dist < 1) continue;
+      final pace = (pts[i].t - pts[j].t) / 1000 / (dist / 1000);
+      final key = ((pace / binS).round() * binS).clamp(60, 1800);
+      out[key] = (out[key] ?? 0) + dt;
+    }
+    return out;
   }
 
   static Map<Effort, double> bestEfforts(List<TrackPoint> pts) => {

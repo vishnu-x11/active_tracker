@@ -6,6 +6,7 @@ abstract final class Tables {
   static const gymSessions = 'gym_sessions';
   static const runs = 'runs';
   static const runPoints = 'run_points';
+  static const runAnalysis = 'run_analysis';
   static const water = 'water_entries';
   static const protein = 'protein_entries';
   static const presets = 'user_presets';
@@ -15,7 +16,19 @@ abstract final class Tables {
 
   static const settings = 'app_settings';
 
-  static const all = [profile, gymSessions, runs, runPoints, water, protein, presets, goals, routines, settings];
+  static const all = [
+    profile,
+    gymSessions,
+    runs,
+    runPoints,
+    runAnalysis,
+    water,
+    protein,
+    presets,
+    goals,
+    routines,
+    settings,
+  ];
 }
 
 class AppDatabase {
@@ -25,7 +38,7 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 6;
+  static const version = 7;
 
   static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
     final f = factory ?? databaseFactory;
@@ -44,6 +57,19 @@ class AppDatabase {
               await db.execute(_routinesTable);
             }
             if (from < 6) await db.execute('ALTER TABLE ${Tables.profile} ADD COLUMN photo TEXT');
+            if (from < 7) {
+              await db.execute(_runAnalysisTable);
+              await db.execute('ALTER TABLE ${Tables.profile} ADD COLUMN pace_zones TEXT');
+              final zones = await db.query(Tables.settings, where: 'key = ?', whereArgs: [legacyZonesKey]);
+              if (zones.isNotEmpty) {
+                await db.update(Tables.profile, {
+                  'pace_zones': zones.single['value'],
+                  'synced': 0,
+                  'updated_at': DateTime.now().millisecondsSinceEpoch,
+                });
+                await db.delete(Tables.settings, where: 'key = ?', whereArgs: [legacyZonesKey]);
+              }
+            }
             return;
           }
           for (final t in Tables.all.reversed) {
@@ -63,6 +89,17 @@ class AppDatabase {
 
   static const _settingsTable =
       'CREATE TABLE IF NOT EXISTS ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL)';
+
+  static const legacyZonesKey = 'run.zones';
+
+  static const _runAnalysisTable =
+      '''
+    CREATE TABLE IF NOT EXISTS ${Tables.runAnalysis} (
+      run_sync_id TEXT PRIMARY KEY REFERENCES ${Tables.runs}(sync_id) ON DELETE CASCADE,
+      version INTEGER NOT NULL,
+      efforts TEXT NOT NULL,
+      pace_bins TEXT NOT NULL
+    )''';
 
   static const _routinesTable =
       '''
@@ -90,6 +127,7 @@ class AppDatabase {
           workout_water_boost INTEGER NOT NULL DEFAULT 1,
           theme_mode TEXT NOT NULL DEFAULT 'system',
           photo TEXT,
+          pace_zones TEXT,
           $_sync
         )''')
       ..execute('''
@@ -135,6 +173,7 @@ class AppDatabase {
           segment INTEGER NOT NULL DEFAULT 0,
           PRIMARY KEY (run_sync_id, seq)
         )''')
+      ..execute(_runAnalysisTable)
       ..execute('''
         CREATE TABLE ${Tables.water} (
           sync_id TEXT PRIMARY KEY,

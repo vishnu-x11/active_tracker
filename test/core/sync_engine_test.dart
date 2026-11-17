@@ -136,6 +136,31 @@ void main() {
     expect(await SyncEngine(b, remote).restoreProfile('nobody'), isFalse);
   });
 
+  test('pace zones travel with the profile and survive a profile from an older app', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    Map<String, Object?> profile(int at) => {
+      'uid': 'u1',
+      'weight_kg': 80.0,
+      'height_cm': 180.0,
+      'burn_target_kcal': 700,
+      'updated_at': at,
+      'deleted': 0,
+      'synced': 0,
+    };
+    await a.db.insert(Tables.profile, {...profile(5), 'pace_zones': '{"auto":false}'});
+    await b.db.insert(Tables.profile, {...profile(1), 'synced': 1});
+    await SyncEngine(a, remote).sync('u1');
+    await SyncEngine(b, remote).sync('u1');
+    expect((await b.db.query(Tables.profile)).single['pace_zones'], '{"auto":false}');
+
+    await remote.put('u1', Tables.profile, 'me', profile(9)..remove('synced'));
+    await SyncEngine(b, remote).sync('u1');
+    final row = (await b.db.query(Tables.profile)).single;
+    expect(row['updated_at'], 9);
+    expect(row['pace_zones'], '{"auto":false}');
+  });
+
   test('one row that cannot be pushed does not stop the others', () async {
     final remote = _Flaky();
     final a = await device();
