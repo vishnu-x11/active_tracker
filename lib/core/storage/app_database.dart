@@ -38,7 +38,9 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 7;
+  static const version = 8;
+
+  static const syncedSettings = ['run.settings', 'reminders'];
 
   static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
     final f = factory ?? databaseFactory;
@@ -51,7 +53,7 @@ class AppDatabase {
         onCreate: (db, _) => _create(db),
         onUpgrade: (db, from, _) async {
           if (from >= 3) {
-            if (from < 4) await db.execute(_settingsTable);
+            if (from < 4) await db.execute(_settingsTableV4);
             if (from < 5) {
               await db.execute('ALTER TABLE ${Tables.gymSessions} ADD COLUMN exercises TEXT');
               await db.execute(_routinesTable);
@@ -70,6 +72,16 @@ class AppDatabase {
                 await db.delete(Tables.settings, where: 'key = ?', whereArgs: [legacyZonesKey]);
               }
             }
+            if (from < 8) {
+              await db.execute('ALTER TABLE ${Tables.settings} ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0');
+              await db.execute('ALTER TABLE ${Tables.settings} ADD COLUMN synced INTEGER NOT NULL DEFAULT 1');
+              await db.update(
+                Tables.settings,
+                {'synced': 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+                where: 'key IN (${List.filled(syncedSettings.length, '?').join(', ')})',
+                whereArgs: syncedSettings,
+              );
+            }
             return;
           }
           for (final t in Tables.all.reversed) {
@@ -87,8 +99,12 @@ class AppDatabase {
     deleted INTEGER NOT NULL DEFAULT 0,
     synced INTEGER NOT NULL DEFAULT 0''';
 
-  static const _settingsTable =
+  static const _settingsTableV4 =
       'CREATE TABLE IF NOT EXISTS ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL)';
+
+  static const _settingsTable =
+      'CREATE TABLE IF NOT EXISTS ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL, '
+      'updated_at INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 1)';
 
   static const legacyZonesKey = 'run.zones';
 
@@ -233,8 +249,11 @@ class AppDatabase {
     return rows.isEmpty ? null : rows.single['value']! as String;
   }
 
-  Future<void> setSetting(String key, String value) =>
-      db.insert(Tables.settings, {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> setSetting(String key, String value) => db.insert(Tables.settings, {
+    'key': key,
+    'value': value,
+    if (syncedSettings.contains(key)) ...{'updated_at': DateTime.now().millisecondsSinceEpoch, 'synced': 0},
+  }, conflictAlgorithm: ConflictAlgorithm.replace);
 
   Future<void> deleteSetting(String key) => db.delete(Tables.settings, where: 'key = ?', whereArgs: [key]);
 

@@ -22,6 +22,9 @@ class FakeRemote implements RemoteStore {
   }
 
   @override
+  Future<Map<String, Object?>?> get(String uid, String collection, String id) async => docs['$uid/$collection']?[id];
+
+  @override
   Future<List<Map<String, Object?>>> changedSince(String uid, String collection, int since) async =>
       ((docs['$uid/$collection'] ?? {}).values.where((d) => (d['updated_at']! as num) > since).toList()
         ..sort((a, b) => (a['updated_at']! as num).compareTo(b['updated_at']! as num)));
@@ -159,6 +162,107 @@ void main() {
     final row = (await b.db.query(Tables.profile)).single;
     expect(row['updated_at'], 9);
     expect(row['pace_zones'], '{"auto":false}');
+  });
+
+  test('a long run route is uploaded in parts and arrives whole and in order', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    await Seed(a).run(DateTime(2026, 11, 5, 6), kcal: 2400);
+    final runId = (await a.db.query(Tables.runs)).single['sync_id']! as String;
+    final batch = a.db.batch();
+    for (var i = 0; i < 2500; i++) {
+      batch.insert(Tables.runPoints, {
+        'run_sync_id': runId,
+        'seq': i,
+        'lat': 10 + i / 1e5,
+        'lng': 76.0,
+        't': i * 1000,
+        'segment': 0,
+      });
+    }
+    await batch.commit(noResult: true);
+
+    await SyncEngine(a, remote).sync('u1');
+    final runDoc = remote.docs['u1/${Tables.runs}']![runId]!;
+    expect(runDoc.containsKey('points'), isFalse);
+    expect(runDoc['route_parts'], 3);
+    final parts = remote.docs['u1/${SyncEngine.routeCollection(runId)}']!;
+    expect(parts.keys, ['0', '1', '2']);
+    expect([for (final p in parts.values) (p['points']! as List).length], [1000, 1000, 500]);
+
+    await SyncEngine(b, remote).sync('u1');
+    final pts = await b.db.query(Tables.runPoints, orderBy: 'seq');
+    expect(pts.length, 2500);
+    expect(pts.first['t'], 0);
+    expect(pts.last['t'], 2499000);
+    expect([for (final p in pts) p['seq']], List.generate(2500, (i) => i));
+  });
+
+  test('a run uploaded by an older version, with its route inside the run, still downloads', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    await Seed(a).run(DateTime(2026, 11, 5, 6), kcal: 300);
+    final row = (await a.db.query(Tables.runs)).single;
+    final id = row['sync_id']! as String;
+    await remote.put('u1', Tables.runs, id, {
+      ...({...row}..remove('synced')),
+      'points': [
+        {'la': 1.0, 'ln': 2.0, 'al': null, 't': 5, 's': 0},
+        {'la': 1.1, 'ln': 2.1, 'al': null, 't': 6, 's': 0},
+      ],
+    });
+    await SyncEngine(b, remote).sync('u1');
+    expect([for (final p in await b.db.query(Tables.runPoints, orderBy: 'seq')) p['lat']], [1.0, 1.1]);
+  });
+
+  test('a run whose route parts are missing is retried later instead of saved without its route', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    await Seed(a).run(DateTime(2026, 11, 5, 6), kcal: 300);
+    final row = (await a.db.query(Tables.runs)).single;
+    await remote.put('u1', Tables.runs, row['sync_id']! as String, {
+      ...({...row}..remove('synced')),
+      'route_parts': 1,
+    });
+    await expectLater(SyncEngine(b, remote).sync('u1'), throwsA(isA<StateError>()));
+    expect(await b.db.query(Tables.runs), isEmpty);
+  });
+
+  test('run settings and reminders follow the account to a new phone, and the newer change wins', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    await a.setSetting('run.settings', '{"voice":false}');
+    await a.setSetting('reminders', '{"waterOn":false}');
+    await a.setSetting('run.recording', '{"points":[]}');
+    await SyncEngine(a, remote).sync('u1');
+    expect(remote.docs['u1/${SyncEngine.settingsCollection}']!.keys, unorderedEquals(['run.settings', 'reminders']));
+
+    final pulled = await SyncEngine(b, remote).sync('u1');
+    expect(pulled.pulled, 2);
+    expect(await b.setting('run.settings'), '{"voice":false}');
+    expect(await b.setting('reminders'), '{"waterOn":false}');
+    expect(await b.setting('run.recording'), isNull);
+
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await b.setSetting('run.settings', '{"voice":true}');
+    await SyncEngine(b, remote).sync('u1');
+    await SyncEngine(a, remote).sync('u1');
+    expect(await a.setting('run.settings'), '{"voice":true}');
+
+    await a.setSetting('reminders', '{"waterOn":true}');
+    await SyncEngine(b, remote).sync('u1');
+    expect(await b.setting('reminders'), '{"waterOn":false}', reason: 'not pushed yet from A');
+  });
+
+  test("signing in with another account drops the first account's run settings", () async {
+    final remote = FakeRemote();
+    final a = await device();
+    await a.setSetting('run.settings', '{"voice":false}');
+    await SyncEngine(a, remote).sync('first');
+    await SyncEngine(a, remote).sync('second');
+    expect(await a.setting('run.settings'), isNull);
+    await SyncEngine(a, remote).sync('first');
+    expect(await a.setting('run.settings'), '{"voice":false}');
   });
 
   test('one row that cannot be pushed does not stop the others', () async {

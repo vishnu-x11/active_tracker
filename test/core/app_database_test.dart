@@ -88,4 +88,25 @@ void main() {
     expect(await upgraded.setting('run.zones'), isNull);
     expect(await upgraded.db.query(Tables.runAnalysis), isEmpty);
   });
+
+  test('upgrading from version 7 lets run settings and reminders sync, other settings stay local', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v7.db';
+    final fresh = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    await fresh.db.execute('DROP TABLE ${Tables.settings}');
+    await fresh.db.execute('CREATE TABLE ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    await fresh.db.insert(Tables.settings, {'key': 'run.settings', 'value': '{"voice":false}'});
+    await fresh.db.insert(Tables.settings, {'key': 'sync.owner', 'value': 'u'});
+    await fresh.db.setVersion(7);
+    await fresh.close();
+
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    final rows = {for (final r in await upgraded.db.query(Tables.settings)) r['key']: r};
+    expect(rows['run.settings']!['synced'], 0);
+    expect(rows['run.settings']!['updated_at'], greaterThan(0));
+    expect(rows['sync.owner']!['synced'], 1);
+    expect(await upgraded.setting('run.settings'), '{"voice":false}');
+  });
 }
