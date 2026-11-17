@@ -8,6 +8,7 @@ import 'package:active_tracker/features/running/presentation/providers.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_log_screen.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_record_screen.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_replay_screen.dart';
+import 'package:active_tracker/features/running/presentation/widgets/location_gate.dart';
 import 'package:active_tracker/features/running/running_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,9 @@ class FakeLocation implements LocationSource {
 
   @override
   Future<void> openSettings() async {}
+
+  @override
+  Future<void> openLocationSettings() async {}
 }
 
 void main() {
@@ -109,7 +113,8 @@ void main() {
     );
     await tester.tap(find.text('go'));
     await settleWithIo(tester);
-    expect(find.text('Ready'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('Ready'), findsNothing);
 
     final container = ProviderScope.containerOf(tester.element(find.byType(RunRecordScreen)));
     expect(container.read(runRecorderProvider).here, gps.here);
@@ -263,6 +268,47 @@ void main() {
     await tester.tap(find.text('Start'));
     await settleWithIo(tester);
     expect(find.textContaining('Location access is blocked'), findsOneWidget);
-    expect(find.text('Ready'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
+  });
+
+  testWidgets('location off: the gate explains the steps and only opens the recorder once it is on', (tester) async {
+    final gps = FakeLocation()..problem = LocationProblem.serviceOff;
+    await pumpFeature(
+      tester,
+      routes: [
+        GoRoute(
+          path: '/start',
+          builder: (c, s) => Scaffold(
+            body: Builder(
+              builder: (c) => TextButton(
+                onPressed: () async {
+                  if (await ensureRunLocation(c) && c.mounted) unawaited(c.push('/rec'));
+                },
+                child: const Text('record'),
+              ),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/rec',
+          builder: (c, s) => const Scaffold(body: Text('recorder')),
+        ),
+      ],
+      initial: '/start',
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
+    );
+    await tester.tap(find.text('record'));
+    await settleWithIo(tester);
+    expect(find.text('Turn on location'), findsOneWidget);
+    expect(find.text('Switch on Use location.'), findsOneWidget);
+    await tester.tap(find.text('Not now'));
+    await settleWithIo(tester);
+    expect(find.text('recorder'), findsNothing);
+
+    gps.problem = null;
+    await tester.tap(find.text('record'));
+    await settleWithIo(tester);
+    expect(find.text('Turn on location'), findsNothing);
+    expect(find.text('recorder'), findsOneWidget);
   });
 }

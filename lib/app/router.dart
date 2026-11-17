@@ -116,6 +116,7 @@ final List<LogOption> logOptions = [
     colors: Metric.burn,
     route: GymRoutes.newSession,
     live: false,
+    gate: null,
   ),
   (
     title: 'Run',
@@ -124,6 +125,7 @@ final List<LogOption> logOptions = [
     colors: Metric.run,
     route: RunRoutes.newRun,
     live: false,
+    gate: null,
   ),
   (
     title: 'Water',
@@ -132,6 +134,7 @@ final List<LogOption> logOptions = [
     colors: Metric.water,
     route: HydrationRoutes.water,
     live: false,
+    gate: null,
   ),
   (
     title: 'Protein',
@@ -140,6 +143,7 @@ final List<LogOption> logOptions = [
     colors: Metric.protein,
     route: ProteinRoutes.protein,
     live: false,
+    gate: null,
   ),
   (
     title: 'Record run with GPS',
@@ -148,5 +152,6 @@ final List<LogOption> logOptions = [
     colors: Metric.protein,
     route: RunRoutes.record,
     live: true,
+    gate: ensureRunLocation,
   ),
 ];

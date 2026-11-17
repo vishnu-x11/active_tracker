@@ -17,6 +17,7 @@ import '../../domain/entities/run.dart';
 import '../../domain/use_cases/run_metrics.dart';
 import '../../running_routes.dart';
 import '../notifiers/run_form_notifier.dart';
+import '../widgets/location_gate.dart';
 import '../widgets/run_stat_grid.dart';
 
 class RunLogScreen extends ConsumerStatefulWidget {
@@ -161,7 +162,7 @@ class _SourceSwitch extends ConsumerWidget {
       onChanged: (v) async {
         if (v == source) return;
         if (v == RunSource.gps) {
-          unawaited(context.push(RunRoutes.record));
+          if (await ensureRunLocation(context) && context.mounted) unawaited(context.push(RunRoutes.record));
           return;
         }
         final ok = await showDialog<bool>(
@@ -209,7 +210,9 @@ class _RecordShortcut extends StatelessWidget {
       radius: 24,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        onTap: () => context.push(RunRoutes.record),
+        onTap: () async {
+          if (await ensureRunLocation(context) && context.mounted) unawaited(context.push(RunRoutes.record));
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(

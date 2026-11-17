@@ -7,7 +7,15 @@ import '../core/theme/app_theme.dart';
 import '../core/widgets/buttons.dart';
 import '../core/widgets/glass.dart';
 
-typedef LogOption = ({String title, String hint, IconData icon, List<Color> colors, String? route, bool live});
+typedef LogOption = ({
+  String title,
+  String hint,
+  IconData icon,
+  List<Color> colors,
+  String? route,
+  bool live,
+  Future<bool> Function(BuildContext context)? gate,
+});
 
 class LogSheet extends StatelessWidget {
   const LogSheet({super.key, required this.options});
@@ -28,7 +36,7 @@ class LogSheet extends StatelessWidget {
           child: SafeArea(
             top: false,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -40,7 +48,7 @@ class LogSheet extends StatelessWidget {
                       decoration: BoxDecoration(color: p.hair, borderRadius: BorderRadius.circular(3)),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -51,32 +59,33 @@ class LogSheet extends StatelessWidget {
                               '${weekdayLong(now)}, ${now.day} ${monthLong[now.month - 1]}',
                               style: AppText.small.copyWith(fontWeight: FontWeight.w500, color: p.sub),
                             ),
-                            Text('Log for Today', style: AppText.display.copyWith(fontSize: 26, color: p.text)),
+                            Text('Log for Today', style: AppText.display.copyWith(fontSize: 22, color: p.text)),
                           ],
                         ),
                       ),
                       GlassIconButton(icon: Icons.close_rounded, tooltip: 'Close', onPressed: () => context.pop()),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
+                    padding: EdgeInsets.zero,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.35,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.5,
                     children: [for (final o in options.where((o) => !o.live)) _Option(option: o)],
                   ),
                   for (final o in options.where((o) => o.live)) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     _Option(option: o, wide: true),
                   ],
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Text(
-                    'Logs are saved for today. You can change the date in each form.',
+                    'Saved for today. Change the date in each form.',
                     textAlign: TextAlign.center,
-                    style: AppText.small.copyWith(color: p.sub),
+                    style: AppText.small.copyWith(fontSize: 12, color: p.sub),
                   ),
                 ],
               ),
@@ -106,31 +115,46 @@ class _Option extends StatelessWidget {
         Row(
           children: [
             Flexible(
-              child: Text(o.title, style: AppText.cardTitle.copyWith(color: p.text)),
+              child: Text(
+                o.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.cardTitle.copyWith(fontSize: 15, color: p.text),
+              ),
             ),
             if (!enabled) ...[const SizedBox(width: 6), Text('Soon', style: AppText.tab.copyWith(color: p.sub))],
           ],
         ),
-        const SizedBox(height: 2),
-        Text(o.hint, maxLines: 2, style: AppText.small.copyWith(color: p.sub)),
+        const SizedBox(height: 3),
+        Text(
+          o.hint,
+          maxLines: wide ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.small.copyWith(fontSize: 12, color: p.sub),
+        ),
       ],
     );
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Glass(
         kind: GlassKind.control,
-        radius: 26,
+        radius: 22,
         blur: false,
         child: InkWell(
-          borderRadius: BorderRadius.circular(26),
-          onTap: enabled ? () => context.pushReplacement(o.route!) : null,
+          borderRadius: BorderRadius.circular(22),
+          onTap: enabled
+              ? () async {
+                  if (o.gate case final gate? when !await gate(context)) return;
+                  if (context.mounted) context.pushReplacement(o.route!);
+                }
+              : null,
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: wide
                 ? Row(
                     children: [
-                      IconTile(icon: o.icon, colors: o.colors, size: 48),
-                      const SizedBox(width: 14),
+                      IconTile(icon: o.icon, colors: o.colors, size: 38),
+                      const SizedBox(width: 12),
                       Expanded(child: text),
                     ],
                   )
@@ -138,7 +162,7 @@ class _Option extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconTile(icon: o.icon, colors: o.colors, size: 44),
+                      IconTile(icon: o.icon, colors: o.colors, size: 36),
                       text,
                     ],
                   ),
