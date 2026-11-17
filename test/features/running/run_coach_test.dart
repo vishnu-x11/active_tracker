@@ -208,7 +208,8 @@ void main() {
 
     await tester.tap(find.byTooltip('Close').last);
     await tester.pumpAndSettle();
-    expect(find.text('Intervals ready'), findsOneWidget);
+    expect(find.text('Intervals ready'), findsNothing);
+    expect(find.text('Voice assistant'), findsOneWidget);
   });
 
   testWidgets('the run share card draws the route and the stats', (tester) async {

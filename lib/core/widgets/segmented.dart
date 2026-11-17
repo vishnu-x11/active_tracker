@@ -5,11 +5,18 @@ import '../theme/app_theme.dart';
 import 'glass.dart';
 
 class GlassSegmented<T> extends StatelessWidget {
-  const GlassSegmented({super.key, required this.options, required this.value, required this.onChanged});
+  const GlassSegmented({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.dense = false,
+  });
 
   final List<(T, String)> options;
   final T value;
   final ValueChanged<T> onChanged;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +24,7 @@ class GlassSegmented<T> extends StatelessWidget {
     return Glass(
       kind: GlassKind.control,
       radius: 999,
-      padding: const EdgeInsets.all(4),
+      padding: EdgeInsets.all(dense ? 3 : 4),
       child: Row(
         children: [
           for (final (v, label) in options)
@@ -31,7 +38,7 @@ class GlassSegmented<T> extends StatelessWidget {
                   onTap: () => onChanged(v),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    height: 40,
+                    height: dense ? 30 : 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
@@ -48,7 +55,7 @@ class GlassSegmented<T> extends StatelessWidget {
                     ),
                     child: Text(
                       label,
-                      style: AppText.body.copyWith(
+                      style: (dense ? AppText.small : AppText.body).copyWith(
                         fontWeight: FontWeight.w600,
                         color: v == value ? Colors.white : p.sub,
                       ),

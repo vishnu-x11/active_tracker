@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 abstract final class BrandColors {
-  static const flame = [Color(0xFFFF9F43), Color(0xFFFF6A2B), Color(0xFFEE3B1E)];
-  static const glow = Color(0xCCFFE27A);
-  static const hot = [Color(0xFFFFF3B0), Color(0xFFFFFFFF), Color(0xFFFFFFFF)];
-  static const core = [Color(0xFFE3201B), Color(0xFFFFB224)];
+  static const flame = [Color(0xFF4FB4FF), Color(0xFF2F80FF), Color(0xFF1F5BFF)];
+  static const glow = Color(0xCCB8E2FF);
+  static const hot = [Color(0xFFE3F3FF), Color(0xFFFFFFFF), Color(0xFFFFFFFF)];
+  static const core = [Color(0xFF1F5BFF), Color(0xFF4FB4FF)];
 }
 
 class FlameMarkPainter extends CustomPainter {

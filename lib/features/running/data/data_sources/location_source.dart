@@ -16,6 +16,8 @@ abstract interface class LocationSource {
   Stream<GpsFix> fixes({bool background = false});
 
   Future<void> openSettings();
+
+  Future<void> openLocationSettings();
 }
 
 class GeolocatorLocationSource implements LocationSource {
@@ -93,5 +95,10 @@ class GeolocatorLocationSource implements LocationSource {
   @override
   Future<void> openSettings() async {
     await Geolocator.openAppSettings();
+  }
+
+  @override
+  Future<void> openLocationSettings() async {
+    await Geolocator.openLocationSettings();
   }
 }

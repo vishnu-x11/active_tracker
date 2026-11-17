@@ -85,7 +85,8 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
   void _onMapCreated(GoogleMapController m) {
     _map = m;
     _fallback?.cancel();
-    _fallback = Timer(const Duration(milliseconds: 700), _start);
+    _fallback = Timer(const Duration(seconds: 9), _start);
+    waitForTiles(m).then((_) => _start());
   }
 
   void _start() {
@@ -222,7 +223,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                     polylines: {
                       if (line.length >= 2)
                         _polyline('ghost', line, color: Colors.white.withValues(alpha: 0.35), width: 4),
-                      if (_drawn.length >= 2) _polyline('route', _drawn, color: Metric.burnDot, width: 7, z: 1),
+                      if (_drawn.length >= 2) _polyline('route', _drawn, color: Metric.cta.last, width: 7, z: 1),
                     },
                     markers: {
                       if (_startDot != null)
@@ -258,22 +259,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                     ? null
                     : Padding(
                         padding: EdgeInsets.fromLTRB(16, _headerH + 8, 16, _footerH + 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.asset(
-                                mapPlaceholder,
-                                fit: BoxFit.cover,
-                                filterQuality: FilterQuality.medium,
-                                errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF16231B)),
-                              ),
-                              const ColoredBox(color: Color(0x660B1220)),
-                              const Center(child: CircularProgressIndicator(color: Colors.white)),
-                            ],
-                          ),
-                        ),
+                        child: ClipRRect(borderRadius: BorderRadius.circular(24), child: const MapLoading()),
                       ),
               ),
             ),
@@ -457,7 +443,7 @@ class _Scrubber extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: value,
                   backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation(Metric.burnDot),
+                  valueColor: AlwaysStoppedAnimation(Metric.cta.first),
                 ),
               ),
             ),

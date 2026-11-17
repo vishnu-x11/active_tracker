@@ -13,6 +13,7 @@ import '../../running_routes.dart';
 import '../notifiers/run_recorder_notifier.dart';
 import '../providers.dart';
 import '../states/run_recorder_state.dart';
+import 'location_gate.dart';
 
 const zoneColors = [
   Color(0xFF8FA3B8),
@@ -84,5 +85,5 @@ Future<void> startSuggestedWorkout(BuildContext context, WidgetRef ref, Suggeste
       return;
     }
   }
-  if (context.mounted) await context.push(RunRoutes.record);
+  if (context.mounted && await ensureRunLocation(context) && context.mounted) await context.push(RunRoutes.record);
 }
