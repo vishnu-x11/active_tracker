@@ -508,6 +508,53 @@ phase builds.
 - **New phone, existing account:** the profile is fetched from Firestore before onboarding is shown.
 - **GPS screen:** opens on the runner's current position with a blue dot that follows them before
   and during recording.
+- **Later (2026-11-06 to 2026-11-10):** brand accent blue (burn stays orange); hydration is the
+  bottle with one minimal logging row (no drink cards); burning-flame launcher icon
+  (`assets/branding/`); profile photo with circle crop (DB v6); sign-out confirm; **Google Maps**
+  replaces flutter_map (`MAPS_API_KEY` from `local.properties`, else the Firebase key; iOS 15+);
+  a run in progress is saved every 5 s and offered for resume on launch. Code has no comments.
+
+## 12c. Precise GPS, background recording and route replay (2026-11-16)
+
+Requirements: (1) Google Maps everywhere (already done 11-10); (2) recording never stops or
+pauses when the app goes to the background; (3) the record screen opens on the runner's exact
+position and distance and pace are precise; (4) a Strava-style replay of the route from a play
+button on the run map, with pace and distance updating as it draws.
+
+- **GPS filter** (`running/domain/use_cases/gps_filter.dart`, pure): fixes with accuracy over 25 m
+  are dropped; an implied speed over 10 m/s (a teleport) is dropped before it can disturb the
+  filter; positions pass through a Kalman smoother whose process noise follows the phone's
+  reported speed (near-zero speed means heavy smoothing, so standing still adds almost nothing);
+  a point is kept only when it moved at least max(3 m, 0.4 x accuracy) from the last kept point;
+  altitude is smoothed (EMA 0.25). `TrackMath.elevationGain` now needs a 3 m rise (hysteresis)
+  before counting, so GPS altitude noise no longer inflates elevation.
+- **Distance and pace:** the recorder keeps a running `meters` total (no longer re-summed from
+  every point each tick); current pace comes from the smoothed Doppler speed when the phone reports
+  one (at least 0.5 m/s), else from the last 30 s of points; pace is cleared when the signal is
+  lost, paused or auto-paused.
+- **Precise start position:** `bestForNavigation` accuracy on both platforms; a last-known position
+  is used only if under 30 s old and within 20 m, otherwise a fresh fix is requested (15 s limit);
+  the follow camera starts at zoom 17 and only follows fixes within 50 m accuracy.
+- **Background:** the recorder provider is kept alive (`ref.keepAlive`) from Start until Finish or
+  Discard, so replacing or leaving the screen never disposes the recording; an
+  `AppLifecycleListener` re-ticks the clock and re-subscribes to GPS on resume and saves the
+  snapshot on hide. Time was already wall-clock based (`_before + now - since`), so a throttled
+  timer never loses seconds. The run settings sheet explains that the phone's battery setting must
+  be Unrestricted if the OS kills the app, with a Settings button. **Known limit:** if Android
+  destroys the activity in the background the Dart engine dies with it; the 5 s snapshot and the
+  resume prompt are the recovery, as before. A native recording service would be the next step.
+- **Replay** (`/run/:id/replay`, `RunReplayScreen`): full-screen Google hybrid (satellite) map tilted
+  60 degrees framed on the route; the orange line draws itself with a white head dot while Pace,
+  Distance and Elevation update above it under the ACTIVE TRACKER wordmark and the run title; the
+  whole run plays in totalMovingTime / 40, clamped to 15-45 s; pause/play, replay when finished, a
+  scrub bar and Close. `RunReplay` (pure) maps progress to an interpolated position, metres, a
+  60 s rolling pace and altitude; pauses are skipped. Polylines are drawn in 40-point chunks so each
+  frame sends only the current chunk to the map. The run detail map header has a white round play
+  button (bottom-right) that opens it.
+- **Tests:** 173 (was 164): GPS filter (5), replay model (3), replay screen flow and a recording that
+  survives the screen being replaced (in `gps_test.dart`).
+- **Not verified on a device:** everything above needs an outdoor run on the moto g85 with the
+  screen locked, and the satellite replay needs the Maps SDK enabled on the Firebase project.
 
 ## 12b. Next features (market research, 2026-11-09)
 
@@ -561,6 +608,60 @@ exercises; a built-in exercise list ships with the app. Health Connect / Apple H
 **Not planned:** social feed / segments / leaderboards, route builder, live location sharing,
 training plans, watch apps and an AI coach. The market has them, but each is large and needs a
 backend or other devices.
+
+## 12d. Progress insights from the Strava recording (requirements, 2026-11-16)
+
+Source: a 32 s screen recording of Strava's **You › Progress** tab, Training Log, Performance
+Predictions, Training Zones and the zone settings, plus the run detail screenshot from the same
+day. Requirements are numbered on from R17. Status: **built 2026-11-16** (see "Built" below the table).
+
+What Active Tracker already has, so these build on it rather than replace it: the Progress tab
+(Week / Month / Year stats, day streak, activity calendar with missed-goal badges, achievements),
+weekly report, goals, personal records (1K, 5K, 10K, 21K) and per-run best efforts, muscle
+recovery, run workouts (free / target pace / intervals), voice coach, GPS route replay.
+
+| # | Requirement | What the recording shows | How it maps to our data | Effort |
+|---|---|---|---|---|
+| R18 | **Training log** (`/progress/log`) | One row per week, newest first, Monday to Sunday; the week's date range on the left and its total moving time on the right; each day is a dot: a small grey dot for nothing, a green circle whose size grows with that day's duration, with the time printed inside the bigger ones (0:26); a darker green dot for a different activity type; a small triangle marks today; header buttons for filter (activity type), jump to a month, and search; a summary card on Progress ("This week 0h 0m", seven dots, "Last week 1h 8m") opens it | Gym sessions and runs by day from `progress` aggregates; runs violet-green and gym orange in our palette instead of two greens; dot size from minutes (3 steps); tapping a dot opens the Activity tab on that day; filter All / Gym / Runs; search can be dropped (nothing to search yet) | S |
+| R19 | **Progress trend card** | At the top of Progress: a line chart of weekly distance over the last ~3 months (Sep, Oct, Nov labels), the current week's point highlighted with its value ("0 km"), and a "See more of your progress" button | 13 weekly totals from `GetPeriodStats`; a Distance / Time / Burn switch (Strava has distance only); the button opens the weekly report | S |
+| R20 | **Performance predictions** (`/progress/predictions`) | Card: "10K 59:31 ▼ 2:49, past 1 month" with a mini trend line. Screen: chips 5K / 10K / Half-Marathon / Marathon; "Current predictions" with the badge, time, pace, the date range it is based on and the change over the past 30 days; a line chart of the prediction day by day (y axis in finish time); Today / 1M / 3M / 6M switch. "Today" shows all four badges with time, pace and delta, or "--" with "5 runs remaining" when there is not enough data; an info button explaining the method | Riegel formula (T2 = T1 × (D2 / D1)^1.06) over the best efforts of GPS runs in the last 60 days, the shortest usable effort being 1K for 5K, 3K for 10K and 5K for the half and marathon; a prediction needs 5 qualifying runs, otherwise "n runs remaining"; the daily series recomputes the prediction as of each day. Store each run's best efforts once (`run_efforts` table, DB v7, synced) so the chart does not re-read every GPS point | M |
+| R21 | **Training zones** (`/progress/zones`) | Card: "Most time 41% in Z3 ▲ 23%" with a horizontal bar per zone. Screen: activity filter (All Run), zone type tabs; "41% in Zone 3" with the date range and the change vs the prior period; six pace zones Z6 (fastest) to Z1 with time in zone, a bar and the pace range (<4:58, 4:58-5:17 ... >7:18); 7D / 1M / 3M / 6M / YTD / 1Y plus a custom date range; a "Your zones at a glance" insight sentence ("Your Zone 5 time decreased by 14% this month... occasional intervals can help sharpen top-end speed"); an edit (pencil) button opens the zone settings | **Pace zones only.** Time in zone comes from the stored GPS points of each run (rolling 30 s pace per point, bucketed); cached per run in `run_efforts.zone_sec` (JSON) so the screen sums rows. Zone boundaries: auto from a threshold pace (default: the predicted 10K pace from R20, else 6:00 /km) using Strava-like percentages, or manual. The insight is rule-based: compare each zone's share with the prior period and pick the largest change. Heart-rate and power zones are **out of scope**: the app has no heart-rate source since Health Connect was dropped (2026-11-06), which is exactly what Strava's empty "No zone data · Connect a device" state shows | M |
+| R22 | **Zone settings** (`/progress/zones/edit`) | Tabs Heart Rate / Power / Pace; a Default / Ride profile switch; the base number (max heart rate 194) with an info button; "Auto-calculate my ranges" switch; five zones with names (Recovery, Endurance, Tempo, Threshold, Anaerobic) and editable ranges; a "Save ... zones" button | One tab, Pace: threshold pace (typed, m:ss), auto-calculate switch, six named zones with editable boundaries when auto is off, validation that boundaries descend, Save. Stored in `app_settings` (`run.zones`) and synced with the profile | S |
+| R23 | **Suggested workout** ("Instant Workouts") | Card: this week's suggested run ("Recovery Run · 6.0 km · Keep the legs moving today without adding stress...") with a purple tile; the screen lists four suggested sessions and shows "Building workouts..." while loading | **Rule-based, not AI.** From the last 7 and 28 days: a recovery run after a hard day, an easy run, an interval session (reusing the existing intervals workout), and a long run at ~25 % of weekly distance; distance and pace from the user's recent runs and R20's threshold pace. Tapping one opens the GPS recorder with that workout pre-set in run settings | M |
+| R24 | **Suggested goal** | Card: "1h per week · 0m / 1h run" with Set Goal and Customize buttons | Suggest a weekly time or distance goal at ~110 % of the last 4 weeks' average, rounded to 15 min or 1 km; Set Goal creates it with the existing `AddGoal`; Customize opens the goal form prefilled | S |
+| R25 | **Best efforts card and run-detail medals** | Progress card: three best efforts (1 mile, 1K, ½ mile) with a medal badge and rank (2nd), the time and "All-time". Run detail: "Your 2nd fastest mile! ▼ 9s" card under the title, and medal markers on the map where the effort happened ("2nd fastest 1/2 mile · Lifetime") | Add 400 m and 1 mile to the effort list (keep metric labels elsewhere); rank each run's effort against all runs (1st / 2nd / 3rd badge); the card shows the three distances with the newest record; on run detail show the rank card with the delta to the previous best and a medal marker at the effort's end point on the route map (we already know the point index from `bestEffort`) | S |
+| R26 | **Week streak** | Streaks card: "5 Weeks" (consecutive weeks with at least one activity) | Add a weeks mode to the existing streak card next to the day streak; same freeze rule per week | S |
+
+**Order:** R18, R25 and R19 first (small, all from existing data), then R20 (its threshold pace feeds
+R21 and R23), then R21 + R22, R23, R24, R26. Each needs a design pass on the glass canvas before
+code, as before.
+
+**Decisions needed:**
+- Heart-rate zones stay out (no HR source). Say if a watch through Health Connect should come back.
+- Suggested workouts are rule-based. An AI version would need a backend.
+- Distances stay metric (400 m, 1K, 5K, 10K, 21.1K, 42.2K); miles are shown nowhere.
+- Predictions need 5 qualifying GPS runs; manual runs do not count because they have no splits.
+
+**Built 2026-11-16, with these differences from the table:**
+- **DB v7** adds `run_analysis` (run id, analyzer version, best spans and 5 s pace buckets as JSON) instead of the
+  planned `run_efforts`. `AnalyseRuns` reads stored rows and only computes runs that have no row for the current
+  `RunAnalyzer.version`, in an isolate, then saves them, so old and pulled runs backfill on first use. Pace buckets are
+  stored, not zone times, so editing zones needs no recompute. The table is local only; every device rebuilds it from
+  the synced points. Bump `RunAnalyzer.version` when the maths changes.
+- Progress cannot import running (running already imports progress), so the router injects `RunInsightCards`
+  (suggested workout, predictions, zones, best efforts) into the Progress tab, and the running screens live at
+  `/run/predictions`, `/run/zones`, `/run/zones/edit`, `/run/workouts`. The training log is `/progress/log`; a dot
+  opens the Activity tab on that day through an injected `dayRoute`.
+- Efforts gain 400 m and 42K; no miles anywhere.
+- Pace zones (R22) live in `profile.pace_zones` (DB v7) and sync with the profile. Profile saves and profile pulls
+  update the row instead of replacing it, so a profile from an older app cannot wipe the zones. The v7 migration moves
+  any `run.zones` setting across. Auto zones use the predicted 10K pace, else 6:00 /km; boundaries are 0.89, 0.946,
+  1.03, 1.15, 1.30 x threshold.
+- Suggested goal (R24) is weekly **run time**: a new `runTime` goal kind in minutes, 15 min steps, ~110 % of the last
+  4 weeks rounded to 15 min, at least 1 h. A goal kind the app does not know is now skipped instead of shown as gym
+  sessions; versions before this one still show a synced time goal as gym sessions.
+- Week streak (R26) has no freeze rule; the current week only counts once it has an activity, like the day streak.
+- R18 search was dropped. Training log shows 52 weeks.
 
 ## 13. Removed from the app
 

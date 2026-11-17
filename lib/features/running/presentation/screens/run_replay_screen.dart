@@ -61,6 +61,12 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
   BitmapDescriptor? _headDot;
   BitmapDescriptor? _startDot;
   int _lastMapMs = 0;
+  bool _ready = false;
+  final _headerKey = GlobalKey();
+  final _footerKey = GlobalKey();
+  double _headerH = 0;
+  double _footerH = 0;
+  Timer? _fallback;
   List<LatLng> _drawn = const [];
   LatLng? _head;
 
@@ -68,6 +74,24 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     unawaited(_loadDots());
+    if (widget.tiles) {
+      _fallback = Timer(const Duration(seconds: 4), _start);
+    } else {
+      _ready = true;
+      if (_replay.playable) _ctrl.forward();
+    }
+  }
+
+  void _onMapCreated(GoogleMapController m) {
+    _map = m;
+    _fallback?.cancel();
+    _fallback = Timer(const Duration(milliseconds: 700), _start);
+  }
+
+  void _start() {
+    if (_ready || !mounted) return;
+    _fallback?.cancel();
+    setState(() => _ready = true);
     if (_replay.playable) _ctrl.forward();
   }
 
@@ -83,6 +107,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _fallback?.cancel();
     _ctrl.dispose();
     _map?.dispose();
     super.dispose();
@@ -163,8 +188,20 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
     _onFrame();
   }
 
+  void _measure() {
+    if (!mounted || _ready) return;
+    final h = _headerKey.currentContext?.size?.height ?? 0, f = _footerKey.currentContext?.size?.height ?? 0;
+    if (h != _headerH || f != _footerH) {
+      setState(() {
+        _headerH = h;
+        _footerH = f;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_ready) WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
     final line = _line;
     final playing = _ctrl.isAnimating;
     return Stack(
@@ -175,7 +212,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                   builder: (context, c) => GoogleMap(
                     initialCameraPosition: _camera(c.biggest),
                     mapType: MapType.hybrid,
-                    onMapCreated: (m) => _map = m,
+                    onMapCreated: _onMapCreated,
                     myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
@@ -209,11 +246,45 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                 )
               : const ColoredBox(color: Color(0xFF16231B)),
         ),
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: _ready,
+            child: AnimatedOpacity(
+              opacity: _ready ? 0 : 1,
+              duration: const Duration(milliseconds: 350),
+              child: ColoredBox(
+                color: const Color(0xFF0B1220),
+                child: _ready
+                    ? null
+                    : Padding(
+                        padding: EdgeInsets.fromLTRB(16, _headerH + 8, 16, _footerH + 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.asset(
+                                mapPlaceholder,
+                                fit: BoxFit.cover,
+                                filterQuality: FilterQuality.medium,
+                                errorBuilder: (_, _, _) => const ColoredBox(color: Color(0xFF16231B)),
+                              ),
+                              const ColoredBox(color: Color(0x660B1220)),
+                              const Center(child: CircularProgressIndicator(color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ),
         Positioned(
           left: 0,
           right: 0,
           top: 0,
           child: DecoratedBox(
+            key: _headerKey,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -261,11 +332,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                               unit: '/km',
                             ),
                             _Stat(label: 'Distance', value: (f.meters / 1000).toStringAsFixed(2), unit: 'km'),
-                            _Stat(
-                              label: 'Elevation',
-                              value: f.altitude == null ? '–' : '${f.altitude!.round()}',
-                              unit: 'm',
-                            ),
+                            _Stat(label: 'Elev. gain', value: '${f.climbM.round()}', unit: 'm'),
                           ],
                         ),
                       ],
@@ -281,6 +348,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
           right: 0,
           bottom: 0,
           child: DecoratedBox(
+            key: _footerKey,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -310,7 +378,7 @@ class _ReplayState extends State<_Replay> with SingleTickerProviderStateMixin {
                                 ? Icons.replay_rounded
                                 : Icons.play_arrow_rounded),
                       tooltip: playing ? 'Pause' : 'Play',
-                      onTap: _replay.playable ? _toggle : null,
+                      onTap: _replay.playable && _ready ? _toggle : null,
                       filled: true,
                     ),
                   ],

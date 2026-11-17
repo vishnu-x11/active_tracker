@@ -159,7 +159,7 @@ void main() {
     expect(find.byIcon(Icons.replay_rounded), findsOneWidget);
     await tester.tap(find.byTooltip('Play'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 2000));
     expect(find.text('0.10'), findsOneWidget);
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
     await tester.tap(find.byTooltip('Pause'));

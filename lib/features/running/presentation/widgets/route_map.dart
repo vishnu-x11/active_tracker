@@ -9,6 +9,8 @@ import '../../domain/entities/track_point.dart';
 
 final mapTilesProvider = Provider<bool>((ref) => true);
 
+const mapPlaceholder = 'assets/images/map_placeholder.jpg';
+
 final _dots = <Color, BitmapDescriptor>{};
 
 Future<BitmapDescriptor> mapDot(Color color, {Color edge = Colors.white, int size = 18}) async {

@@ -1,10 +1,5 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' hide PhoneCodeSent;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-import '../../domain/entities/phone_verification.dart';
-import '../models/auth_user_mapper.dart';
 
 abstract interface class AuthRemoteDataSource {
   Future<User> signInWithEmail(String email, String password);
@@ -12,8 +7,6 @@ abstract interface class AuthRemoteDataSource {
   Future<void> sendPasswordReset(String email);
 
   Future<User?> signInWithGoogle();
-  Future<PhoneVerification> sendPhoneCode(String phoneE164, {int? resendToken});
-  Future<User> verifyPhoneCode(String verificationId, String smsCode);
   Future<void> signOut();
 }
 
@@ -49,43 +42,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final credential = GoogleAuthProvider.credential(accessToken: tokens.accessToken, idToken: tokens.idToken);
     return _require(await _auth.signInWithCredential(credential));
   }
-
-  @override
-  Future<PhoneVerification> sendPhoneCode(String phoneE164, {int? resendToken}) {
-    final result = Completer<PhoneVerification>();
-    void fail(Object e, [StackTrace? st]) {
-      if (!result.isCompleted) result.completeError(e, st);
-    }
-
-    _auth
-        .verifyPhoneNumber(
-          phoneNumber: phoneE164,
-          forceResendingToken: resendToken,
-          timeout: const Duration(seconds: 60),
-          verificationCompleted: (credential) async {
-            try {
-              final user = _require(await _auth.signInWithCredential(credential));
-              if (!result.isCompleted) result.complete(PhoneAutoVerified(user.toEntity()));
-            } catch (e, st) {
-              fail(e, st);
-            }
-          },
-          verificationFailed: fail,
-          codeSent: (verificationId, token) {
-            if (!result.isCompleted) {
-              result.complete(PhoneCodeSent(verificationId: verificationId, resendToken: token));
-            }
-          },
-          codeAutoRetrievalTimeout: (_) {},
-        )
-        .catchError(fail);
-    return result.future;
-  }
-
-  @override
-  Future<User> verifyPhoneCode(String verificationId, String smsCode) async => _require(
-    await _auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: smsCode)),
-  );
 
   @override
   Future<void> signOut() async {
