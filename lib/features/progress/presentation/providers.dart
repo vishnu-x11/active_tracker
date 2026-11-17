@@ -92,6 +92,7 @@ void invalidateDayFromWidget(WidgetRef ref, String day) {
     ..invalidate(firstLogDayProvider)
     ..invalidate(allActivitiesProvider)
     ..invalidate(streakProvider)
+    ..invalidate(weekStreakProvider)
     ..invalidate(calendarMonthProvider)
     ..invalidate(goalsProvider);
   ref.read(syncControllerProvider.notifier).nudge();

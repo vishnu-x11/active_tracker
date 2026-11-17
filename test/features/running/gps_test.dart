@@ -7,6 +7,7 @@ import 'package:active_tracker/features/running/presentation/notifiers/run_recor
 import 'package:active_tracker/features/running/presentation/providers.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_log_screen.dart';
 import 'package:active_tracker/features/running/presentation/screens/run_record_screen.dart';
+import 'package:active_tracker/features/running/presentation/screens/run_replay_screen.dart';
 import 'package:active_tracker/features/running/running_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,6 +149,62 @@ void main() {
     expect(find.text('1.00 km'), findsWidgets);
     expect(find.textContaining('Recorded with GPS'), findsOneWidget);
     expect(find.text('Pace per km'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Replay run'));
+    await settleWithIo(tester);
+    expect(find.byType(RunReplayScreen), findsOneWidget);
+    expect(find.text('ACTIVE TRACKER'), findsOneWidget);
+    expect(find.text('1.00'), findsOneWidget);
+    expect(find.text('5:00'), findsOneWidget);
+    expect(find.byIcon(Icons.replay_rounded), findsOneWidget);
+    await tester.tap(find.byTooltip('Play'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('0.10'), findsOneWidget);
+    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    await tester.tap(find.byTooltip('Pause'));
+    await tester.pump();
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RunReplayScreen), findsNothing);
+  });
+
+  testWidgets('a recording keeps running while the record screen is replaced', (tester) async {
+    final gps = FakeLocation()..here = const TrackPoint(lat: 12.9, lng: 77.6, t: 0);
+    final key = GlobalKey<NavigatorState>();
+    await pumpFeature(
+      tester,
+      routes: [
+        GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen()),
+        GoRoute(path: '/other', builder: (c, s) => const Text('elsewhere')),
+      ],
+      initial: '/rec',
+      navigatorKey: key,
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
+    );
+    await tester.tap(find.text('Start'));
+    await settleWithIo(tester);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final p in track(51, startT: now)) {
+      gps.controller.add(p);
+    }
+    await settleWithIo(tester);
+    expect(find.text('0.50 km'), findsOneWidget);
+
+    unawaited(GoRouter.of(key.currentContext!).pushReplacement('/other'));
+    await settleWithIo(tester);
+    expect(find.text('elsewhere'), findsOneWidget);
+    for (final p in track(51, startT: now + 153000, startLat: 12.9 + 500 / 111195)) {
+      gps.controller.add(p);
+    }
+    await settleWithIo(tester);
+
+    unawaited(GoRouter.of(key.currentContext!).pushReplacement('/rec'));
+    await settleWithIo(tester);
+    expect(find.text('Recording'), findsOneWidget);
+    expect(find.text('1.00 km'), findsOneWidget);
+    expect(gps.backgroundCalls.last, isTrue);
   });
 
   testWidgets('a run in progress survives the app closing and can be discarded', (tester) async {

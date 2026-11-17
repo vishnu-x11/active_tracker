@@ -17,17 +17,21 @@ import '../progress_providers.dart';
 import '../providers.dart';
 
 class GoalsScreen extends ConsumerStatefulWidget {
-  const GoalsScreen({super.key});
+  const GoalsScreen({super.key, this.initialKind, this.initialPeriod, this.initialTarget});
+
+  final GoalKind? initialKind;
+  final GoalPeriod? initialPeriod;
+  final double? initialTarget;
 
   @override
   ConsumerState<GoalsScreen> createState() => _GoalsScreenState();
 }
 
 class _GoalsScreenState extends ConsumerState<GoalsScreen> {
-  GoalPeriod _view = GoalPeriod.week;
-  GoalKind _kind = GoalKind.runDistance;
-  GoalPeriod _period = GoalPeriod.month;
-  late final _target = TextEditingController(text: _fmt(_kind.start));
+  late GoalPeriod _view = widget.initialPeriod ?? GoalPeriod.week;
+  late GoalKind _kind = widget.initialKind ?? GoalKind.runDistance;
+  late GoalPeriod _period = widget.initialPeriod ?? GoalPeriod.month;
+  late final _target = TextEditingController(text: _fmt(widget.initialTarget ?? _kind.start));
 
   @override
   void dispose() {
@@ -223,7 +227,7 @@ class _GoalCard extends ConsumerWidget {
     final g = progress.goal;
     final f = g.target == 0 ? 0.0 : (progress.done / g.target).clamp(0, 1).toDouble();
     final colors = switch (g.kind) {
-      GoalKind.runDistance => Metric.run,
+      GoalKind.runDistance || GoalKind.runTime => Metric.run,
       GoalKind.proteinDays => Metric.protein,
       GoalKind.waterDays => Metric.water,
       _ => Metric.burn,

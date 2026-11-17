@@ -93,6 +93,7 @@ class _Body extends ConsumerWidget {
     switch (result) {
       case Ok():
         invalidateDayFromWidget(ref, run.day);
+        ref.invalidate(runAnalysesProvider);
         context.pop();
       case Err(:final failure):
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
@@ -139,6 +140,7 @@ class _Body extends ConsumerWidget {
           '${gps ? 'Recorded with GPS' : 'Logged manually'} · ${r.type.label}',
           style: AppText.small.copyWith(fontWeight: FontWeight.w500, color: p.sub),
         ),
+        if (gps) EffortRankCard(run: r),
         const SizedBox(height: 16),
         Text.rich(
           TextSpan(

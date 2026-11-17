@@ -7,6 +7,7 @@ import 'package:active_tracker/features/progress/progress_routes.dart';
 import 'package:active_tracker/features/protein/protein_routes.dart';
 import 'package:active_tracker/features/profile/profile_routes.dart';
 import 'package:active_tracker/features/reminders/reminders_routes.dart';
+import 'package:active_tracker/features/running/running_api.dart';
 import 'package:active_tracker/features/running/running_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,17 @@ void main() {
     'streaks': (ProgressRoutes.streaks, [ProgressRoutes.tab(root)]),
     'hydration history': (HydrationRoutes.history, HydrationRoutes.routes),
     'muscle recovery': (GymRoutes.recovery, GymRoutes.routes),
+    'training log': (ProgressRoutes.log, [ProgressRoutes.tab(root)]),
+    'predictions': (RunRoutes.predictions, RunRoutes.routes()),
+    'training zones': (RunRoutes.zones, RunRoutes.routes()),
+    'zone settings': (RunRoutes.zoneSettings, RunRoutes.routes()),
+    'suggested workouts': (RunRoutes.workouts, RunRoutes.routes()),
+    'progress with insights': (
+      ProgressRoutes.progress,
+      [
+        ProgressRoutes.tab(root, insights: const [RunInsightCards()]),
+      ],
+    ),
   };
 
   for (final MapEntry(key: name, value: (path, routes)) in screens.entries) {

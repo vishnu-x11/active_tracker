@@ -31,6 +31,8 @@ class RunRecorderState {
     this.coach,
     this.signal = GpsSignal.searching,
     this.restored = false,
+    this.meters = 0,
+    this.speedMps,
   });
 
   final RecorderStatus status;
@@ -52,12 +54,16 @@ class RunRecorderState {
   final CoachView? coach;
   final GpsSignal signal;
   final bool restored;
+  final double meters;
+  final double? speedMps;
 
-  double get meters => TrackMath.distance(points);
+  static const minPaceSpeedMps = 0.5;
+
   double get km => meters / 1000;
   int get kcal => (1.04 * weightKg * km).floor();
 
   double? get currentPace {
+    if (speedMps case final v? when v >= minPaceSpeedMps) return 1000 / v;
     final seg = points.where((p) => p.segment == segment).toList();
     if (seg.length < 2) return null;
     final end = seg.last;
@@ -84,6 +90,8 @@ class RunRecorderState {
     CoachView? Function()? coach,
     GpsSignal? signal,
     bool? restored,
+    double? meters,
+    double? Function()? speedMps,
   }) => RunRecorderState(
     status: status ?? this.status,
     points: points ?? this.points,
@@ -99,6 +107,8 @@ class RunRecorderState {
     coach: coach != null ? coach() : this.coach,
     signal: signal ?? this.signal,
     restored: restored ?? this.restored,
+    meters: meters ?? this.meters,
+    speedMps: speedMps != null ? speedMps() : this.speedMps,
   );
 
   @override
@@ -117,7 +127,9 @@ class RunRecorderState {
       other.settings == settings &&
       other.coach == coach &&
       other.signal == signal &&
-      other.restored == restored;
+      other.restored == restored &&
+      other.meters == meters &&
+      other.speedMps == speedMps;
 
   @override
   int get hashCode => Object.hash(
@@ -135,5 +147,7 @@ class RunRecorderState {
     coach,
     signal,
     restored,
+    meters,
+    speedMps,
   );
 }

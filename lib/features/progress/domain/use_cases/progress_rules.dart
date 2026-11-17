@@ -43,6 +43,26 @@ abstract final class ProgressRules {
     return (current: current, best: best < current ? current : best);
   }
 
+  static ({int current, int best}) weekStreak(Set<String> activeDays, DateTime today) {
+    final weeks = {for (final k in activeDays) dayKey(mondayOf(DateTime.parse(k)))};
+    var current = 0;
+    var w = mondayOf(today);
+    if (!weeks.contains(dayKey(w))) w = addDays(w, -7);
+    while (weeks.contains(dayKey(w))) {
+      current++;
+      w = addDays(w, -7);
+    }
+    final sorted = weeks.toList()..sort();
+    var best = 0, run = 0;
+    String? prev;
+    for (final k in sorted) {
+      run = prev != null && dayKey(addDays(DateTime.parse(prev), 7)) == k ? run + 1 : 1;
+      if (run > best) best = run;
+      prev = k;
+    }
+    return (current: current, best: best < current ? current : best);
+  }
+
   static List<({String name, String description, bool earned, String progress})> achievements(List<ActivityItem> runs) {
     final r = runs.where((a) => a.type == ActivityType.run).toList();
     final longest = r.fold(0.0, (m, a) => a.km > m ? a.km : m);
@@ -88,6 +108,9 @@ abstract final class ProgressRules {
         return days.values.fold(0, (a, t) => a + t.gymCount);
       case GoalKind.runDistance:
         return runs.where((a) => a.type == ActivityType.run).fold(0.0, (a, r) => a + r.km);
+      case GoalKind.runTime:
+        return (runs.where((a) => a.type == ActivityType.run).fold(0, (a, r) => a + (r.movingSec ?? 0)) / 60)
+            .floorToDouble();
       case GoalKind.activeBurn:
         return days.values.fold(0, (a, t) => a + t.burnKcal);
       case GoalKind.proteinDays:

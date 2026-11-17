@@ -1,9 +1,19 @@
+String goalMinutes(int minutes) {
+  final h = minutes ~/ 60, m = minutes % 60;
+  return h == 0
+      ? '${m}m'
+      : m == 0
+      ? '${h}h'
+      : '${h}h ${m}m';
+}
+
 enum GoalKind {
   gymSessions('Gym sessions', 'sessions', 1),
   runDistance('Run distance', 'km', 1),
   activeBurn('Active burn', 'kcal', 50),
   proteinDays('Protein days', 'days', 1),
-  waterDays('Water days', 'days', 1);
+  waterDays('Water days', 'days', 1),
+  runTime('Run time', 'min', 15);
 
   const GoalKind(this.label, this.unit, this.step);
   final String label;
@@ -18,6 +28,7 @@ enum GoalKind {
     runDistance => 20,
     activeBurn => 3000,
     proteinDays || waterDays => 5,
+    runTime => 60,
   };
 
   String title(double target) {
@@ -28,6 +39,7 @@ enum GoalKind {
       activeBurn => 'Burn $t kcal',
       proteinDays => 'Hit protein $t days',
       waterDays => 'Hit water $t days',
+      runTime => 'Run ${goalMinutes(target.round())}',
     };
   }
 }

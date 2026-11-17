@@ -1,5 +1,3 @@
-import 'package:sqflite/sqflite.dart';
-
 import '../../../../core/storage/app_database.dart';
 import '../../domain/entities/profile.dart';
 import '../models/profile_model.dart';
@@ -28,6 +26,14 @@ class ProfileLocalDataSourceImpl implements ProfileLocalDataSource {
   }
 
   @override
-  Future<void> upsert(String uid, Profile profile) =>
-      _database.db.insert(Tables.profile, profile.toRow(uid, _now()), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> upsert(String uid, Profile profile) => _database.db.transaction((txn) async {
+    final row = profile.toRow(uid, _now());
+    final updated = await txn.update(
+      Tables.profile,
+      {...row, 'deleted': 0},
+      where: '${ProfileColumns.uid} = ?',
+      whereArgs: [uid],
+    );
+    if (updated == 0) await txn.insert(Tables.profile, row);
+  });
 }

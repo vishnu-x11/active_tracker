@@ -13,6 +13,7 @@ import '../features/progress/progress_routes.dart';
 import '../features/protein/protein_routes.dart';
 import '../features/reminders/reminders_routes.dart';
 import '../features/running/running_routes.dart';
+import '../features/running/running_api.dart';
 import '../features/home/home_routes.dart';
 import '../features/profile/presentation/notifiers/profile_notifier.dart';
 import '../features/profile/profile_routes.dart';
@@ -50,6 +51,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               ProgressRoutes.tab(
                 rootNavigatorKey,
+                dayRoute: ActivityRoutes.activity,
+                insights: const [RunInsightCards()],
                 actions: [
                   Builder(
                     builder: (context) => GlassIconButton(

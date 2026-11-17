@@ -1,14 +1,19 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show KeepAliveLink;
 
 import '../../../../core/result.dart';
 import '../../../profile/profile_api.dart';
 import '../../data/data_sources/location_source.dart';
 import '../../domain/entities/recording.dart';
 import '../../domain/entities/run_settings.dart';
+import '../../domain/entities/track_point.dart';
+import '../../domain/use_cases/gps_filter.dart';
 import '../../domain/use_cases/motion_detector.dart';
+import '../../domain/use_cases/track_math.dart';
 import '../../domain/use_cases/voice_cues.dart';
 import '../providers.dart';
 import '../states/run_recorder_state.dart';
@@ -19,7 +24,9 @@ final runRecorderProvider = NotifierProvider.autoDispose<RunRecorderNotifier, Ru
 
 class RunRecorderNotifier extends Notifier<RunRecorderState> {
   static const maxAccuracyM = 25.0;
+  static const hereAccuracyM = 50.0;
   static const lostMs = 10000;
+  static const speedSmoothing = 0.3;
 
   StreamSubscription<GpsFix>? _gps;
   Timer? _ticker;
@@ -27,11 +34,13 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   int? _lastGoodFixMs;
   int _lastSaveMs = 0;
   Future<void> _saves = Future.value();
+  KeepAliveLink? _alive;
 
   DateTime? _since;
   int _before = 0;
 
   final _motion = MotionDetector();
+  final _filter = GpsFilter(maxAccuracyM: maxAccuracyM);
   SplitCues? _splits;
   WorkoutCoach? _coach;
 
@@ -40,7 +49,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   @override
   RunRecorderState build() {
     ref.listen(profileProvider, (_, _) {});
+    final life = AppLifecycleListener(onResume: _onResume, onHide: () => _persist(force: true));
     ref.onDispose(() {
+      life.dispose();
       _gps?.cancel();
       _ticker?.cancel();
       _retry?.cancel();
@@ -57,6 +68,19 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     return const RunRecorderState();
   }
 
+  void _hold() => _alive ??= ref.keepAlive();
+
+  void _release() {
+    _alive?.close();
+    _alive = null;
+  }
+
+  void _onResume() {
+    if (!ref.mounted || state.status == RecorderStatus.ready) return;
+    if (state.status == RecorderStatus.recording) _tick();
+    if (_gps == null) unawaited(_listen(background: true));
+  }
+
   Future<void> _restore() async {
     final result = await ref.read(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)());
     if (!ref.mounted || state.status != RecorderStatus.ready) return;
@@ -64,11 +88,14 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
       _before = r.movingMs;
       _splits = SplitCues(state.settings.splitEveryM, fromM: r.meters);
       _coach = WorkoutCoach(state.settings.workout);
+      _filter.reset();
+      _hold();
       state = state.copyWith(
         status: RecorderStatus.paused,
         points: r.points,
         segment: r.segment,
         elapsedMs: r.movingMs,
+        meters: r.meters,
         here: r.points.lastOrNull,
         restored: true,
       );
@@ -103,6 +130,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _gps = null;
     await gps?.cancel();
     await _forget();
+    _release();
   }
 
   Future<void> _loadSettings() async {
@@ -154,8 +182,10 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     }
     await _listen(background: true);
     if (!ref.mounted) return;
+    _hold();
     state = state.copyWith(status: RecorderStatus.recording, problem: () => null);
     _motion.reset(_nowMs(), state.here);
+    _filter.reset();
     _splits = SplitCues(state.settings.splitEveryM);
     _coach = WorkoutCoach(state.settings.workout);
     _resumeClock();
@@ -192,22 +222,44 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
 
   void _onFix(GpsFix fix) {
     final now = _nowMs();
-    final p = fix.point;
+    final raw = fix.point;
     final good = fix.accuracy <= maxAccuracyM;
     if (good) _lastGoodFixMs = now;
-    state = state.copyWith(here: p, signal: good ? GpsSignal.good : GpsSignal.weak);
+    state = state.copyWith(
+      here: good || state.here == null || fix.accuracy <= hereAccuracyM ? raw : null,
+      signal: good ? GpsSignal.good : GpsSignal.weak,
+    );
     if (!good) return;
     switch (state.status) {
       case RecorderStatus.recording:
-        _motion.onFix(p, now, speed: fix.speed);
-        state = state.copyWith(points: [...state.points, p.withSegment(state.segment)]);
+        final f = _filter.accept(fix);
+        if (f == null) return;
+        _motion.onFix(f.point, now, speed: fix.speed);
+        final prev = state.speedMps;
+        state = state.copyWith(speedMps: () => prev == null ? fix.speed : prev + speedSmoothing * (fix.speed - prev));
+        if (f.keep) _append(f.point);
         _progress();
-      case RecorderStatus.autoPaused when _motion.onFix(p, now, speed: fix.speed):
+      case RecorderStatus.autoPaused:
+        final f = _filter.accept(fix);
+        if (f == null || !_motion.onFix(f.point, now, speed: fix.speed)) return;
         _resume(announce: 'Resumed.');
-        state = state.copyWith(points: [...state.points, p.withSegment(state.segment)]);
-        _motion.reset(now, p);
+        _filter
+          ..cut()
+          ..mark(f.point);
+        _append(f.point);
+        _motion.reset(now, f.point);
       case _:
     }
+  }
+
+  void _append(TrackPoint p) {
+    final pts = state.points;
+    final q = p.withSegment(state.segment);
+    var m = state.meters;
+    if (pts.isNotEmpty && pts.last.segment == q.segment) {
+      m += TrackMath.meters(pts.last.lat, pts.last.lng, q.lat, q.lng);
+    }
+    state = state.copyWith(points: [...pts, q], meters: m);
   }
 
   void _tick() {
@@ -215,6 +267,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     state = state.copyWith(
       elapsedMs: _moving(),
       signal: lost && state.signal == GpsSignal.good ? GpsSignal.weak : null,
+      speedMps: lost ? () => null : null,
     );
     if (state.settings.autoPauseActive && _motion.isStill(_nowMs())) {
       _autoPause();
@@ -247,7 +300,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     final moving = _moving();
     _stopClock();
     _before = math.max(moving - still, 0);
-    state = state.copyWith(status: RecorderStatus.autoPaused, elapsedMs: _before);
+    state = state.copyWith(status: RecorderStatus.autoPaused, elapsedMs: _before, speedMps: () => null);
     _say('Auto-paused.');
     _persist(force: true);
   }
@@ -259,7 +312,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     }
     if (state.status != RecorderStatus.recording) return;
     _stopClock();
-    state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before);
+    state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before, speedMps: () => null);
     _say('Paused.');
     _persist(force: true);
   }
@@ -267,6 +320,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   void resume() {
     if (!state.status.stopped) return;
     _resume(announce: 'Resumed.');
+    _filter.cut();
     _motion.reset(_nowMs(), state.here);
   }
 
@@ -290,7 +344,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     if (state.status == RecorderStatus.ready || state.saving) return;
     if (state.status == RecorderStatus.recording) {
       _stopClock();
-      state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before);
+      state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before, speedMps: () => null);
     }
     _retry?.cancel();
     final gps = _gps;
@@ -306,6 +360,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
         await _forget();
         if (!ref.mounted) return;
         _say('Run finished. ${Speech.distance(state.meters)} in ${Speech.duration(state.elapsedMs ~/ 1000)}.');
+        _release();
         state = state.copyWith(saving: false, draftId: value);
       case Err(:final failure):
         state = state.copyWith(saving: false, error: () => failure.message);

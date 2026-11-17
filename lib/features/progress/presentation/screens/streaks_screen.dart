@@ -20,6 +20,7 @@ class StreaksScreen extends ConsumerWidget {
     final p = context.palette;
     final today = ref.watch(todayProvider);
     final streak = ref.watch(streakProvider).value;
+    final weeks = ref.watch(weekStreakProvider).value;
     final first = DateTime(today.year, today.month), last = DateTime(today.year, today.month + 1, 0);
     final days = ref.watch(daySummariesProvider((dayKey(first), dayKey(last)))).value ?? const {};
     final active = days.values.where((t) => t.workouts > 0).length;
@@ -75,6 +76,30 @@ class StreaksScreen extends ConsumerWidget {
                       colors: Metric.run,
                       value: '$active',
                       label: 'Active days in ${monthShort[today.month - 1]}',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: StatTile(
+                      icon: Icons.date_range_rounded,
+                      colors: Metric.run,
+                      value: '${weeks?.current ?? 0}',
+                      unit: 'weeks',
+                      label: 'Week streak',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StatTile(
+                      icon: Icons.workspace_premium_rounded,
+                      colors: Metric.burn,
+                      value: '${weeks?.best ?? 0}',
+                      unit: 'weeks',
+                      label: 'Best week streak',
                     ),
                   ),
                 ],

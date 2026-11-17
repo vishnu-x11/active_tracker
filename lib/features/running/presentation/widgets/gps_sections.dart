@@ -10,11 +10,14 @@ import '../../../../core/widgets/glass.dart';
 import '../../domain/entities/run.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/use_cases/gps_use_cases.dart';
+import '../../domain/use_cases/run_insights.dart';
 import '../../domain/use_cases/run_metrics.dart';
 import '../../domain/use_cases/track_math.dart';
 import '../../running_routes.dart';
 import '../providers.dart';
+import 'insight_parts.dart';
 import 'route_map.dart';
+import 'run_insight_cards.dart';
 
 class RunMapHeader extends ConsumerWidget {
   const RunMapHeader({super.key, required this.run});
@@ -24,13 +27,21 @@ class RunMapHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pts = ref.watch(runTrackProvider(run.id)).value ?? const <TrackPoint>[];
+    final ranks = EffortRanks.forRun(ref.watch(runAnalysesProvider).value ?? const [], run.id);
+    final medals = <MapMedal>[
+      for (final r in ranks)
+        if (r.end < pts.length)
+          (at: pts[r.end], rank: r.rank, title: '${EffortRanks.ordinal(r.rank)} ${r.effort.distance}'),
+    ];
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: SizedBox(
         height: 240,
         child: Stack(
           children: [
-            Positioned.fill(child: RouteMap(points: pts, interactive: true)),
+            Positioned.fill(
+              child: RouteMap(points: pts, interactive: true, medals: medals),
+            ),
             Positioned(
               left: 12,
               bottom: 12,
@@ -42,6 +53,92 @@ class RunMapHeader extends ConsumerWidget {
                   '${run.km.toStringAsFixed(2)} km · GPS',
                   style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: context.palette.text),
                 ),
+              ),
+            ),
+            if (pts.length >= 2)
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Tooltip(
+                  message: 'Replay run',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () => context.push(RunRoutes.replay(run.id)),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10)],
+                        ),
+                        child: const Icon(Icons.play_arrow_rounded, color: Color(0xFF0E1018), size: 30),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EffortRankCard extends ConsumerWidget {
+  const EffortRankCard({super.key, required this.run});
+
+  final Run run;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final ranks = EffortRanks.forRun(ref.watch(runAnalysesProvider).value ?? const [], run.id);
+    if (ranks.isEmpty) return const SizedBox.shrink();
+    final top = ranks.first;
+    final delta = top.delta;
+    final rest = ranks.skip(1).take(3).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Glass(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            MedalBadge(rank: top.rank),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    top.rank == 1
+                        ? 'Your fastest ${top.effort.distance}!'
+                        : 'Your ${EffortRanks.ordinal(top.rank)} ${top.effort.distance}!',
+                    style: AppText.cardTitle.copyWith(color: p.text),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(raceClock(top.seconds), style: AppText.body.copyWith(color: p.text)),
+                      if (delta != null && delta.round() != 0)
+                        top.rank == 1
+                            ? ChangeChip(text: '${signedClock(delta)} faster', good: true)
+                            : ChangeChip(text: '${signedClock(delta)} off your best', good: false, down: false),
+                    ],
+                  ),
+                  if (rest.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Also ${rest.map((r) => '${EffortRanks.ordinal(r.rank).toLowerCase()} ${r.effort.distance}').join(', ')}',
+                      style: AppText.small.copyWith(color: p.sub),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

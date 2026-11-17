@@ -43,6 +43,14 @@ final streakProvider = FutureProvider.autoDispose<({int current, int best})>((re
   return ProgressRules.streak(active, today);
 });
 
+final weekStreakProvider = FutureProvider.autoDispose<({int current, int best})>((ref) async {
+  ref.watch(dataRevisionProvider);
+  final today = ref.watch(todayProvider);
+  final active = (await ref.watch(progressRepositoryProvider).activeDays(dayKey(addDays(today, -730)), dayKey(today)))
+      .valueOrThrow();
+  return ProgressRules.weekStreak(active, today);
+});
+
 typedef CalendarDay = ({DateTime date, bool run, bool gym, List<DailyGoal> missed, bool future, bool today});
 
 final calendarMonthProvider = FutureProvider.autoDispose.family<List<CalendarDay>, DateTime>((ref, month) async {
@@ -99,6 +107,7 @@ void invalidateProgress(Ref ref) {
     ..invalidate(firstLogDayProvider)
     ..invalidate(allActivitiesProvider)
     ..invalidate(streakProvider)
+    ..invalidate(weekStreakProvider)
     ..invalidate(calendarMonthProvider)
     ..invalidate(goalsProvider);
 }

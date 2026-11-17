@@ -23,12 +23,17 @@ class TrackPoint {
 }
 
 enum Effort {
+  m400('400m', 400),
   k1('1K', 1000),
   k5('5K', 5000),
   k10('10K', 10000),
-  half('21K', 21097);
+  half('21K', 21097),
+  full('42K', 42195);
 
   const Effort(this.label, this.meters);
   final String label;
   final int meters;
+
+  String get distance =>
+      meters < 1000 ? '$meters m' : '${(meters / 1000).toStringAsFixed(meters % 1000 == 0 ? 0 : 1)} km';
 }

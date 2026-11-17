@@ -128,6 +128,7 @@ class RunFormNotifier extends Notifier<RunFormState> {
     switch (result) {
       case Ok(:final value):
         invalidateDay(ref, value.day);
+        ref.invalidate(runAnalysesProvider);
         if (_originalDay != null && _originalDay != value.day) invalidateDay(ref, _originalDay!);
         ref
           ..invalidate(runProvider(value.id))

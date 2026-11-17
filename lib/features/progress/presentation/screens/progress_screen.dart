@@ -16,13 +16,15 @@ import '../../domain/use_cases/progress_rules.dart';
 import '../../progress_routes.dart';
 import '../progress_providers.dart';
 import '../widgets/activity_calendar.dart';
+import '../widgets/progress_cards.dart';
 
 enum _Period { week, month, year }
 
 class ProgressScreen extends ConsumerStatefulWidget {
-  const ProgressScreen({super.key, this.actions = const []});
+  const ProgressScreen({super.key, this.actions = const [], this.insights = const []});
 
   final List<Widget> actions;
+  final List<Widget> insights;
 
   @override
   ConsumerState<ProgressScreen> createState() => _ProgressScreenState();
@@ -45,6 +47,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
     final km = runs.fold(0.0, (a, r) => a + r.km);
     final secs = runs.fold(0, (a, r) => a + (r.movingSec ?? 0));
     final streak = ref.watch(streakProvider).value;
+    final weeks = ref.watch(weekStreakProvider).value;
     return SafeArea(
       bottom: false,
       child: ListView(
@@ -78,6 +81,8 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          TrendCard(all: all, today: today),
           const SizedBox(height: 16),
           GlassSegmented<_Period>(
             options: const [(_Period.week, 'Week'), (_Period.month, 'Month'), (_Period.year, 'Year')],
@@ -116,6 +121,10 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                           Text(
                             'Best ${streak?.best ?? 0} days · ${(streak?.current ?? 0) > 0 ? 'keep it going!' : 'log a workout to start one'}',
                             style: AppText.small.copyWith(color: p.sub),
+                          ),
+                          Text(
+                            '${weeks?.current ?? 0} week${weeks?.current == 1 ? '' : 's'} in a row · best ${weeks?.best ?? 0}',
+                            style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: p.text),
                           ),
                         ],
                       ),
@@ -158,6 +167,10 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          LogSummaryCard(all: all, today: today),
+          SuggestedGoalCard(all: all, today: today),
+          for (final w in widget.insights) ...[const SizedBox(height: 20), w],
           const SizedBox(height: 16),
           ActivityCalendar(today: today),
           const SizedBox(height: 20),
