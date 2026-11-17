@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/dates.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/result.dart';
+import '../../../core/sync/sync_controller.dart';
 import '../../progress/progress.dart';
 import '../data/data_sources/reminder_scheduler.dart';
 import '../data/repositories/reminders_repository_impl.dart';
@@ -24,7 +25,10 @@ final reminderSettingsProvider = AsyncNotifierProvider<ReminderSettingsNotifier,
 
 class ReminderSettingsNotifier extends AsyncNotifier<ReminderSettings> {
   @override
-  Future<ReminderSettings> build() async => (await ref.watch(remindersRepositoryProvider).load()).valueOrThrow();
+  Future<ReminderSettings> build() async {
+    ref.watch(dataRevisionProvider);
+    return (await ref.watch(remindersRepositoryProvider).load()).valueOrThrow();
+  }
 
   Future<void> change(ReminderSettings Function(ReminderSettings) apply) async {
     final current = state.value;
@@ -36,6 +40,7 @@ class ReminderSettingsNotifier extends AsyncNotifier<ReminderSettings> {
       await ref.read(remindersRepositoryProvider).requestPermission();
     }
     await ref.read(remindersRepositoryProvider).save(next);
+    ref.read(syncControllerProvider.notifier).nudge();
   }
 }
 

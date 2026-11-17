@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/formulas/formulas.dart';
 import '../../../../core/result.dart';
+import '../../../../core/sync/sync_controller.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/run_settings.dart';
@@ -84,6 +85,7 @@ Future<void> startSuggestedWorkout(BuildContext context, WidgetRef ref, Suggeste
       messenger.showSnackBar(SnackBar(content: Text(failure.message)));
       return;
     }
+    ref.read(syncControllerProvider.notifier).nudge();
   }
   if (context.mounted && await ensureRunLocation(context) && context.mounted) await context.push(RunRoutes.record);
 }

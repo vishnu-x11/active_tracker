@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 abstract interface class RemoteStore {
   Future<void> put(String uid, String collection, String id, Map<String, Object?> data);
 
+  Future<Map<String, Object?>?> get(String uid, String collection, String id);
+
   Future<List<Map<String, Object?>>> changedSince(String uid, String collection, int since);
 }
 
@@ -19,6 +21,10 @@ class FirestoreRemoteStore implements RemoteStore {
   @override
   Future<void> put(String uid, String collection, String id, Map<String, Object?> data) =>
       _col(uid, collection).doc(id).set(data);
+
+  @override
+  Future<Map<String, Object?>?> get(String uid, String collection, String id) async =>
+      (await _col(uid, collection).doc(id).get()).data();
 
   @override
   Future<List<Map<String, Object?>>> changedSince(String uid, String collection, int since) async {

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show KeepAliveLink;
 
 import '../../../../core/result.dart';
+import '../../../../core/sync/sync_controller.dart';
 import '../../../profile/profile_api.dart';
 import '../../data/data_sources/location_source.dart';
 import '../../domain/entities/recording.dart';
@@ -49,6 +50,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   @override
   RunRecorderState build() {
     ref.listen(profileProvider, (_, _) {});
+    ref.listen(dataRevisionProvider, (_, _) => unawaited(_loadSettings()));
     final life = AppLifecycleListener(onResume: _onResume, onHide: () => _persist(force: true));
     ref.onDispose(() {
       life.dispose();
@@ -165,7 +167,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     if (splitChanged && state.status != RecorderStatus.ready) _splits = SplitCues(s.splitEveryM, fromM: state.meters);
     if (!s.voice) ref.read(speakerProvider).stop();
     if (!s.autoPauseActive && state.status == RecorderStatus.autoPaused) resume();
-    ref.read(saveRunSettingsProvider)(s);
+    unawaited(ref.read(saveRunSettingsProvider)(s).then((_) => ref.read(syncControllerProvider.notifier).nudge()));
   }
 
   void _say(String text) {
