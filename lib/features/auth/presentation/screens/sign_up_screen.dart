@@ -42,7 +42,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     return AuthScaffold(
       icon: Icons.person_add_alt_1_rounded,
       title: 'Create account',
-      subtitle: 'Use your email. You can also sign in with Google or your phone instead.',
+      subtitle: 'Use your email. You can also sign in with Google instead.',
       onBack: () => context.go(AuthRoutes.login),
       footer: AuthFooterLink(lead: 'Have an account?', action: 'Sign in', onTap: () => context.go(AuthRoutes.login)),
       children: [

@@ -85,7 +85,7 @@ void main() {
       expect(r.playable, isTrue);
       expect(r.totalMeters, closeTo(1000, 1));
       expect(r.totalSeconds, 300);
-      expect(r.duration().inSeconds, 15);
+      expect(r.duration().inSeconds, 20);
       final start = r.at(0);
       expect(start.meters, 0);
       expect(start.paceSecPerKm, isNull);
@@ -109,9 +109,24 @@ void main() {
       expect(justAfter.meters, closeTo(503.3, 0.5));
     });
 
-    test('a long run is compressed to at most 45 seconds', () {
-      expect(RunReplay(track(2001)).duration().inSeconds, 45);
+    test('a long run is compressed to at most 60 seconds', () {
+      expect(RunReplay(track(2001)).duration().inSeconds, 60);
       expect(RunReplay(const []).playable, isFalse);
+    });
+
+    test('elevation is the climb so far, not the raw GPS altitude', () {
+      final pts = [
+        for (final (i, p) in track(41).indexed)
+          TrackPoint(lat: p.lat, lng: p.lng, t: p.t, alt: -67.0 + (i < 20 ? i : 20 - (i - 20) / 2)),
+      ];
+      final r = RunReplay(pts);
+      expect(r.at(0).climbM, 0);
+      expect(r.at(0.25).climbM, inInclusiveRange(6, 12));
+      expect(r.at(1).climbM, TrackMath.elevationGain(pts));
+      expect(r.at(1).climbM, 18);
+      for (var p = 0.0; p <= 1; p += 0.05) {
+        expect(r.at(p).climbM, greaterThanOrEqualTo(0));
+      }
     });
   });
 }

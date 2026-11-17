@@ -36,21 +36,27 @@ abstract final class TrackMath {
 
   static double distance(List<TrackPoint> pts) => pts.isEmpty ? 0 : cumulative(pts).last;
 
-  static int elevationGain(List<TrackPoint> pts, {double threshold = 3}) {
+  static List<double> cumulativeGain(List<TrackPoint> pts, {double threshold = 3}) {
+    final out = <double>[];
     var gain = 0.0;
     double? low;
     for (final p in pts) {
       final a = p.alt;
-      if (a == null) continue;
-      if (low == null || a < low) {
-        low = a;
-      } else if (a - low >= threshold) {
-        gain += a - low;
-        low = a;
+      if (a != null) {
+        if (low == null || a < low) {
+          low = a;
+        } else if (a - low >= threshold) {
+          gain += a - low;
+          low = a;
+        }
       }
+      out.add(gain);
     }
-    return gain.round();
+    return out;
   }
+
+  static int elevationGain(List<TrackPoint> pts, {double threshold = 3}) =>
+      pts.isEmpty ? 0 : cumulativeGain(pts, threshold: threshold).last.round();
 
   static List<({double km, double seconds})> splits(List<TrackPoint> pts) {
     if (pts.length < 2) return const [];

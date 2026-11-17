@@ -26,6 +26,7 @@ class RunMapHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    precacheImage(const AssetImage(mapPlaceholder), context);
     final pts = ref.watch(runTrackProvider(run.id)).value ?? const <TrackPoint>[];
     final ranks = EffortRanks.forRun(ref.watch(runAnalysesProvider).value ?? const [], run.id);
     final medals = <MapMedal>[
