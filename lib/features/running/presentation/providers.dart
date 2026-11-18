@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/sync/sync_controller.dart';
 import '../data/data_sources/location_source.dart';
+import '../data/data_sources/step_source.dart';
 import '../data/data_sources/run_local_data_source.dart';
 import '../data/data_sources/speaker.dart';
 import '../data/data_sources/track_local_data_source.dart';
@@ -47,6 +48,7 @@ final runProvider = FutureProvider.autoDispose.family<Run?, String>((ref, id) as
 });
 
 final locationSourceProvider = Provider<LocationSource>((ref) => const GeolocatorLocationSource());
+final stepSourceProvider = Provider<StepSource>((ref) => const PedometerStepSource());
 
 final trackRepositoryProvider = Provider<TrackRepository>(
   (ref) => TrackRepositoryImpl(TrackLocalDataSourceImpl(ref.watch(appDatabaseProvider))),

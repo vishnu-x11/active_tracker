@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_palette.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../domain/use_cases/run_metrics.dart';
 import '../../running_routes.dart';
 import '../providers.dart';
@@ -26,23 +26,15 @@ class _UnfinishedRunPromptState extends ConsumerState<UnfinishedRunPrompt> {
   Future<void> _check() async {
     final run = await ref.read(unfinishedRecordingProvider.future);
     if (run == null || !mounted) return;
-    final p = context.palette;
     final km = (run.meters / 1000).toStringAsFixed(2);
-    final resume = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (c) => AlertDialog(
-        backgroundColor: p.pageTop,
-        title: const Text('Resume your unfinished run?'),
-        content: Text('$km km · ${RunMetrics.clock(run.movingMs ~/ 1000)} recorded before the app closed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: Text('Discard', style: TextStyle(color: p.danger)),
-          ),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Resume')),
-        ],
-      ),
+    final resume = await showAppDialog(
+      context,
+      icon: Icons.directions_run_rounded,
+      title: 'Resume your unfinished run?',
+      message: '$km km · ${RunMetrics.clock(run.movingMs ~/ 1000)} recorded before the app closed.',
+      cancel: 'Discard',
+      confirm: 'Resume',
+      dismissible: false,
     );
     if (!mounted) return;
     if (resume ?? false) {

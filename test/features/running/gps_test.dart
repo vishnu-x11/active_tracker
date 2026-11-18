@@ -43,12 +43,31 @@ class FakeLocation implements LocationSource {
   Future<TrackPoint?> current() async => here;
 
   final backgroundCalls = <bool>[];
+  final rawCalls = <bool>[];
+  final service = StreamController<bool>.broadcast();
+  bool on = true;
 
   @override
-  Stream<GpsFix> fixes({bool background = false}) {
+  Stream<GpsFix> fixes({bool background = false, bool rawGps = false}) {
     backgroundCalls.add(background);
+    rawCalls.add(rawGps);
     return controller.stream.map(GpsFix.new);
   }
+
+  final polls = <bool>[];
+  GpsFix? Function()? onPoll;
+
+  @override
+  Future<GpsFix?> poll({bool rawGps = false}) async {
+    polls.add(rawGps);
+    return onPoll?.call();
+  }
+
+  @override
+  Stream<bool> serviceEnabled() => service.stream;
+
+  @override
+  Future<bool> serviceOn() async => on;
 
   @override
   Future<void> openSettings() async {}

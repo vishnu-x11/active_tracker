@@ -14,6 +14,7 @@ import '../../domain/entities/run_settings.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/use_cases/gps_filter.dart';
 import '../../domain/use_cases/motion_detector.dart';
+import '../../domain/use_cases/step_distance.dart';
 import '../../domain/use_cases/track_math.dart';
 import '../../domain/use_cases/voice_cues.dart';
 import '../providers.dart';
@@ -28,8 +29,39 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   static const hereAccuracyM = 50.0;
   static const lostMs = 10000;
   static const speedSmoothing = 0.3;
+  static const restartAfterMs = 15000;
+  static const disconnectedAfterMs = 15000;
+  static const minLearnSteps = 30;
+
+  static const lostWithSteps = 'GPS disconnected. Using your steps to estimate distance.';
+  static const lostNoSteps = 'GPS disconnected.';
+  static const backAgain = 'GPS reconnected.';
 
   StreamSubscription<GpsFix>? _gps;
+  StreamSubscription<bool>? _service;
+  StreamSubscription<int>? _stepSub;
+  Timer? _watch;
+  int? _lastFixMs;
+  int _streamAtMs = 0;
+  int? _recordingAtMs;
+  bool _rawGps = false;
+  bool _recovering = false;
+  bool _visible = true;
+  int? _streamFixMs;
+  Timer? _poll;
+  bool _polling = false;
+  bool _pollRaw = true;
+  bool _serviceOff = false;
+  bool _stepsOk = false;
+  int? _steps;
+  int? _stepsAtGood;
+  int? _learnSteps;
+  double _learnM = 0;
+  double _extraM = 0;
+  double _gapBaseM = 0;
+  final _stride = StrideModel();
+  final _cadence = StepCadence();
+  final _gap = GapDistance();
   Timer? _ticker;
   Timer? _retry;
   int? _lastGoodFixMs;
@@ -51,12 +83,20 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   RunRecorderState build() {
     ref.listen(profileProvider, (_, _) {});
     ref.listen(dataRevisionProvider, (_, _) => unawaited(_loadSettings()));
-    final life = AppLifecycleListener(onResume: _onResume, onHide: () => _persist(force: true));
+    final life = AppLifecycleListener(
+      onResume: _onResume,
+      onShow: () => _visible = true,
+      onHide: () {
+        _visible = false;
+        _persist(force: true);
+      },
+    );
     ref.onDispose(() {
       life.dispose();
       _gps?.cancel();
       _ticker?.cancel();
       _retry?.cancel();
+      _stopWatching();
     });
     Future.microtask(() async {
       final p = await ref.read(profileProvider.future);
@@ -78,9 +118,11 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   }
 
   void _onResume() {
+    _visible = true;
     if (!ref.mounted || state.status == RecorderStatus.ready) return;
     if (state.status == RecorderStatus.recording) _tick();
-    if (_gps == null) unawaited(_listen(background: true));
+    final quiet = _nowMs() - math.max(_streamFixMs ?? _streamAtMs, _streamAtMs);
+    if (_gps == null || quiet > 5000) unawaited(_recover());
   }
 
   Future<void> _restore() async {
@@ -88,6 +130,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     if (!ref.mounted || state.status != RecorderStatus.ready) return;
     if (result case Ok(value: final r?)) {
       _before = r.movingMs;
+      _extraM = r.extraM;
       _splits = SplitCues(state.settings.splitEveryM, fromM: r.meters);
       _coach = WorkoutCoach(state.settings.workout);
       _filter.reset();
@@ -102,6 +145,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
         restored: true,
       );
       _progress();
+      unawaited(_startWatching(askSteps: false));
     }
   }
 
@@ -115,6 +159,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
       segment: state.segment,
       movingMs: state.status.stopped ? _before : _moving(),
       savedAt: ref.read(recorderClockProvider)(),
+      extraM: _extraM + (_gap.open ? _gap.meters(_stride.strideM) : 0),
     );
     final save = ref.read(saveRecordingProgressProvider);
     _saves = _saves.then((_) => save(snapshot));
@@ -128,6 +173,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   Future<void> discard() async {
     _ticker?.cancel();
     _retry?.cancel();
+    _stopWatching();
     final gps = _gps;
     _gps = null;
     await gps?.cancel();
@@ -185,7 +231,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     await _listen(background: true);
     if (!ref.mounted) return;
     _hold();
+    _recordingAtMs = _nowMs();
     state = state.copyWith(status: RecorderStatus.recording, problem: () => null);
+    unawaited(_startWatching(askSteps: true));
     _motion.reset(_nowMs(), state.here);
     _filter.reset();
     _splits = SplitCues(state.settings.splitEveryM);
@@ -200,22 +248,35 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _retry?.cancel();
     final old = _gps;
     _gps = null;
-    await old?.cancel();
+    await old?.cancel().timeout(const Duration(seconds: 3), onTimeout: () {});
     if (!ref.mounted) return;
+    _streamAtMs = _nowMs();
     late final StreamSubscription<GpsFix> sub;
     sub = ref
         .read(locationSourceProvider)
-        .fixes(background: background)
+        .fixes(background: background, rawGps: _rawGps)
         .listen(
-          _onFix,
+          (fix) {
+            _streamFixMs = _nowMs();
+            _stopPolling();
+            _onFix(fix);
+          },
           onError: (Object _) {
-            if (ref.mounted && state.signal == GpsSignal.good) state = state.copyWith(signal: GpsSignal.weak);
+            if (!ref.mounted || _gps != sub) return;
+            if (state.signal == GpsSignal.good) state = state.copyWith(signal: GpsSignal.weak);
+            _retry?.cancel();
+            _retry = Timer(const Duration(seconds: 2), () => unawaited(_recover()));
           },
           onDone: () {
             if (!ref.mounted || _gps != sub) return;
             _gps = null;
             _retry = Timer(const Duration(seconds: 2), () {
-              if (ref.mounted && _gps == null) _listen(background: state.status != RecorderStatus.ready);
+              if (!ref.mounted || _gps != null) return;
+              if (state.status == RecorderStatus.ready) {
+                unawaited(_listen());
+              } else {
+                unawaited(_recover());
+              }
             });
           },
         );
@@ -226,7 +287,12 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     final now = _nowMs();
     final raw = fix.point;
     final good = fix.accuracy <= maxAccuracyM;
-    if (good) _lastGoodFixMs = now;
+    _lastFixMs = now;
+    if (good) {
+      _lastGoodFixMs = now;
+      _stepsAtGood = _steps;
+    }
+    if (good && state.signal == GpsSignal.lost) _alert(backAgain);
     state = state.copyWith(
       here: good || state.here == null || fix.accuracy <= hereAccuracyM ? raw : null,
       signal: good ? GpsSignal.good : GpsSignal.weak,
@@ -257,20 +323,31 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   void _append(TrackPoint p) {
     final pts = state.points;
     final q = p.withSegment(state.segment);
-    var m = state.meters;
-    if (pts.isNotEmpty && pts.last.segment == q.segment) {
-      m += TrackMath.meters(pts.last.lat, pts.last.lng, q.lat, q.lng);
+    final straight = pts.isNotEmpty && pts.last.segment == q.segment
+        ? TrackMath.meters(pts.last.lat, pts.last.lng, q.lat, q.lng)
+        : 0.0;
+    var m = state.meters + straight;
+    if (_gap.open) {
+      final extra = GapDistance.bridge(stepMeters: _gap.meters(_stride.strideM), straightMeters: straight);
+      _extraM += extra;
+      m = _gapBaseM + straight + extra;
+      _gap.close();
+      _learnSteps = null;
     }
-    state = state.copyWith(points: [...pts, q], meters: m);
+    state = state.copyWith(points: [...pts, q], meters: m, onSteps: false);
   }
 
   void _tick() {
-    final lost = _lastGoodFixMs == null || _nowMs() - _lastGoodFixMs! > lostMs;
+    final now = _nowMs();
+    final lost = _lastGoodFixMs == null || now - _lastGoodFixMs! > lostMs;
+    final disconnected = state.signal == GpsSignal.lost;
+    final stepSpeed = disconnected ? _stepSpeed(now) : null;
     state = state.copyWith(
       elapsedMs: _moving(),
       signal: lost && state.signal == GpsSignal.good ? GpsSignal.weak : null,
-      speedMps: lost ? () => null : null,
+      speedMps: disconnected ? () => stepSpeed : (lost ? () => null : null),
     );
+    _learnStride();
     if (state.settings.autoPauseActive && _motion.isStill(_nowMs())) {
       _autoPause();
     } else {
@@ -298,6 +375,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   }
 
   void _autoPause() {
+    _closeGap();
     final still = _nowMs() - (_motion.lastMoveMs ?? _nowMs());
     final moving = _moving();
     _stopClock();
@@ -313,6 +391,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
       return;
     }
     if (state.status != RecorderStatus.recording) return;
+    _closeGap();
     _stopClock();
     state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before, speedMps: () => null);
     _say('Paused.');
@@ -345,17 +424,24 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   Future<void> finish() async {
     if (state.status == RecorderStatus.ready || state.saving) return;
     if (state.status == RecorderStatus.recording) {
+      _closeGap();
       _stopClock();
       state = state.copyWith(status: RecorderStatus.paused, elapsedMs: _before, speedMps: () => null);
     }
     _retry?.cancel();
+    _stopWatching();
     final gps = _gps;
     _gps = null;
     await gps?.cancel();
     state = state.copyWith(saving: true, error: () => null);
     final hour = DateTime.now().hour;
     final title = hour < 11 ? 'Morning Run' : (hour < 14 ? 'Lunch Run' : (hour < 19 ? 'Evening Run' : 'Night Run'));
-    final result = await ref.read(saveRunDraftProvider)(points: state.points, weightKg: state.weightKg, title: title);
+    final result = await ref.read(saveRunDraftProvider)(
+      points: state.points,
+      weightKg: state.weightKg,
+      title: title,
+      extraMeters: _extraM,
+    );
     if (!ref.mounted) return;
     switch (result) {
       case Ok(:final value):
@@ -367,8 +453,154 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
       case Err(:final failure):
         state = state.copyWith(saving: false, error: () => failure.message);
         unawaited(_listen(background: true));
+        unawaited(_startWatching(askSteps: false));
     }
   }
 
   Future<void> openSettings() => ref.read(locationSourceProvider).openSettings();
+
+  Future<void> _startWatching({required bool askSteps}) async {
+    _watch?.cancel();
+    _watch = Timer.periodic(const Duration(seconds: 1), (_) => _watchTick());
+    final source = ref.read(locationSourceProvider);
+    _serviceOff = !await source.serviceOn();
+    if (!ref.mounted) return;
+    await _service?.cancel();
+    _service = source.serviceEnabled().listen(_onService, onError: (Object _) {});
+    final steps = ref.read(stepSourceProvider);
+    _stepsOk = askSteps ? await steps.ensureAccess() : _stepsOk;
+    if (!ref.mounted || !_stepsOk) return;
+    await _stepSub?.cancel();
+    _stepSub = steps.steps().listen(_onSteps, onError: (Object _) => _stepsOk = false);
+  }
+
+  void _startPolling() {
+    _poll ??= Timer.periodic(const Duration(seconds: 3), (_) => unawaited(_pollOnce()));
+    unawaited(_pollOnce());
+  }
+
+  void _stopPolling() {
+    _poll?.cancel();
+    _poll = null;
+  }
+
+  Future<void> _pollOnce() async {
+    if (_polling || !ref.mounted || _serviceOff || state.status == RecorderStatus.ready) return;
+    _polling = true;
+    try {
+      final fix = await ref.read(locationSourceProvider).poll(rawGps: _pollRaw);
+      if (!ref.mounted || _poll == null) return;
+      if (fix == null) {
+        _pollRaw = !_pollRaw;
+      } else {
+        _onFix(fix);
+      }
+    } finally {
+      _polling = false;
+    }
+  }
+
+  void _stopWatching() {
+    _stopPolling();
+    _watch?.cancel();
+    _watch = null;
+    unawaited(_service?.cancel());
+    _service = null;
+    unawaited(_stepSub?.cancel());
+    _stepSub = null;
+  }
+
+  void _watchTick() {
+    if (!ref.mounted || state.status == RecorderStatus.ready || state.saving) return;
+    final now = _nowMs();
+    final quietSince = math.max(_streamFixMs ?? _streamAtMs, _streamAtMs);
+    if (!_serviceOff && now - quietSince >= restartAfterMs) unawaited(_recover(switchProvider: true));
+    if (state.status != RecorderStatus.recording) return;
+    final since = _lastGoodFixMs == null ? (_recordingAtMs ?? now) : math.max(_lastGoodFixMs!, _recordingAtMs ?? 0);
+    final gone = _serviceOff || now - since >= disconnectedAfterMs;
+    if (gone && state.signal != GpsSignal.lost) {
+      state = state.copyWith(signal: GpsSignal.lost, speedMps: () => null);
+      _alert(_stepsOk ? lostWithSteps : lostNoSteps);
+    }
+    if (state.signal == GpsSignal.lost && !_gap.open) {
+      _gap.begin(_stepsAtGood ?? _steps);
+      _gapBaseM = state.meters;
+      _learnSteps = null;
+      state = state.copyWith(onSteps: _stepsOk);
+    }
+  }
+
+  Future<void> _recover({bool switchProvider = false}) async {
+    if (_recovering || !ref.mounted || state.status == RecorderStatus.ready || state.saving) return;
+    _recovering = true;
+    _streamAtMs = _nowMs();
+    try {
+      final source = ref.read(locationSourceProvider);
+      _serviceOff = !await source.serviceOn();
+      if (!ref.mounted) return;
+      if (_serviceOff) {
+        if (state.status == RecorderStatus.recording) _watchTick();
+        return;
+      }
+      if (!_visible) {
+        _startPolling();
+        return;
+      }
+      if (switchProvider || _lastFixMs == null || _nowMs() - _lastFixMs! > 5000) _rawGps = !_rawGps;
+      await _listen(background: true);
+    } finally {
+      _recovering = false;
+    }
+  }
+
+  void _onService(bool on) {
+    if (!ref.mounted) return;
+    _serviceOff = !on;
+    if (on) {
+      unawaited(_recover());
+    } else if (state.status == RecorderStatus.recording) {
+      _watchTick();
+    }
+  }
+
+  void _onSteps(int total) {
+    if (!ref.mounted) return;
+    final now = _nowMs();
+    _steps = total;
+    _cadence.add(now, total);
+    if (!_gap.open || state.status != RecorderStatus.recording) return;
+    _gap.steps(total);
+    state = state.copyWith(meters: _gapBaseM + _gap.meters(_stride.strideM));
+    _progress();
+  }
+
+  double? _stepSpeed(int now) {
+    if (!_stepsOk) return null;
+    final sps = _cadence.stepsPerSecond(now);
+    return sps == null || sps <= 0 ? null : sps * _stride.strideM;
+  }
+
+  void _learnStride() {
+    final steps = _steps;
+    if (steps == null || _gap.open || state.signal != GpsSignal.good) {
+      _learnSteps = null;
+      return;
+    }
+    if (_learnSteps case final from?) {
+      if (steps - from < minLearnSteps) return;
+      _stride.learn(state.meters - _learnM, steps - from);
+    }
+    _learnSteps = steps;
+    _learnM = state.meters;
+  }
+
+  void _closeGap() {
+    if (!_gap.open) return;
+    _extraM += _gap.meters(_stride.strideM);
+    _gap.close();
+    _learnSteps = null;
+    state = state.copyWith(onSteps: false);
+  }
+
+  void _alert(String text) => unawaited(ref.read(speakerProvider).say(text));
 }

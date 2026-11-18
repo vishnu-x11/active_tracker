@@ -20,8 +20,9 @@ class SaveRunDraft {
     required List<TrackPoint> points,
     required double weightKg,
     required String title,
+    double extraMeters = 0,
   }) async {
-    final meters = TrackMath.distance(points);
+    final meters = TrackMath.distance(points) + extraMeters;
     final secs = TrackMath.movingSeconds(points).lastOrNull?.round() ?? 0;
     if (points.length < 2 || meters < minMeters || secs == 0) {
       return const Err(ValidationFailure('Too short to save. Move a little further, then finish.'));

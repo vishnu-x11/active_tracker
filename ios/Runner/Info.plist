@@ -13,6 +13,8 @@
 	<string>Active Tracker uses the camera to take your profile photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Active Tracker lets you choose a profile photo from your library.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Active Tracker counts your steps to keep distance and pace going when GPS drops during a run.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Active Tracker uses your location to record the route, distance and pace of your runs.</string>
 	<key>CFBundleDevelopmentRegion</key>
