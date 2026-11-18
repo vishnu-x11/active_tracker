@@ -13,7 +13,7 @@ enum RecorderStatus {
   bool get stopped => this == paused || this == autoPaused;
 }
 
-enum GpsSignal { searching, weak, good }
+enum GpsSignal { searching, weak, good, lost }
 
 class RunRecorderState {
   const RunRecorderState({
@@ -33,6 +33,7 @@ class RunRecorderState {
     this.restored = false,
     this.meters = 0,
     this.speedMps,
+    this.onSteps = false,
   });
 
   final RecorderStatus status;
@@ -56,6 +57,7 @@ class RunRecorderState {
   final bool restored;
   final double meters;
   final double? speedMps;
+  final bool onSteps;
 
   static const minPaceSpeedMps = 0.5;
 
@@ -64,6 +66,7 @@ class RunRecorderState {
 
   double? get currentPace {
     if (speedMps case final v? when v >= minPaceSpeedMps) return 1000 / v;
+    if (signal == GpsSignal.lost) return null;
     final seg = points.where((p) => p.segment == segment).toList();
     if (seg.length < 2) return null;
     final end = seg.last;
@@ -92,6 +95,7 @@ class RunRecorderState {
     bool? restored,
     double? meters,
     double? Function()? speedMps,
+    bool? onSteps,
   }) => RunRecorderState(
     status: status ?? this.status,
     points: points ?? this.points,
@@ -109,6 +113,7 @@ class RunRecorderState {
     restored: restored ?? this.restored,
     meters: meters ?? this.meters,
     speedMps: speedMps != null ? speedMps() : this.speedMps,
+    onSteps: onSteps ?? this.onSteps,
   );
 
   @override
@@ -129,7 +134,8 @@ class RunRecorderState {
       other.signal == signal &&
       other.restored == restored &&
       other.meters == meters &&
-      other.speedMps == speedMps;
+      other.speedMps == speedMps &&
+      other.onSteps == onSteps;
 
   @override
   int get hashCode => Object.hash(
@@ -149,5 +155,6 @@ class RunRecorderState {
     restored,
     meters,
     speedMps,
+    onSteps,
   );
 }

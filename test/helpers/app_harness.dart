@@ -5,6 +5,7 @@ import 'package:active_tracker/core/theme/app_palette.dart';
 import 'package:active_tracker/features/profile/data/data_sources/profile_local_data_source.dart';
 import 'package:active_tracker/features/profile/domain/entities/profile.dart';
 import 'package:active_tracker/features/running/data/data_sources/speaker.dart';
+import 'package:active_tracker/features/running/data/data_sources/step_source.dart';
 import 'package:active_tracker/features/running/presentation/providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'fake_speaker.dart';
+import 'fake_steps.dart';
 import 'pump.dart';
 
 Future<AppDatabase> pumpFeature(
@@ -28,6 +30,7 @@ Future<AppDatabase> pumpFeature(
   Future<void> Function(AppDatabase db)? seed,
   GlobalKey<NavigatorState>? navigatorKey,
   Speaker? speaker,
+  StepSource? steps,
 }) async {
   sqfliteFfiInit();
   tester.view
@@ -54,6 +57,7 @@ Future<AppDatabase> pumpFeature(
         accountLabelProvider.overrideWithValue('test@example.com'),
         photoUrlProvider.overrideWithValue(null),
         speakerProvider.overrideWithValue(speaker ?? FakeSpeaker()),
+        stepSourceProvider.overrideWithValue(steps ?? FakeSteps()),
         mapTilesProvider.overrideWithValue(false),
         ...overrides,
       ],

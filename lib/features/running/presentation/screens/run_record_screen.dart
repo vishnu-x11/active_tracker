@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/formulas/formulas.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/buttons.dart';
 import '../../../../core/widgets/glass.dart';
 import '../../../../core/widgets/segmented.dart';
@@ -28,25 +29,18 @@ class RunRecordScreen extends ConsumerWidget {
     final status = ref.watch(runRecorderProvider.select((s) => s.status));
     final points = ref.watch(runRecorderProvider.select((s) => s.points));
     final here = ref.watch(runRecorderProvider.select((s) => s.here));
-    final p = context.palette;
     return PopScope(
       canPop: status == RecorderStatus.ready,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final leave = await showDialog<bool>(
-          context: context,
-          builder: (c) => AlertDialog(
-            backgroundColor: p.pageTop,
-            title: const Text('Discard this run?'),
-            content: const Text('The recording will be lost. Tap Finish to keep it.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Keep recording')),
-              TextButton(
-                onPressed: () => Navigator.pop(c, true),
-                child: Text('Discard', style: TextStyle(color: p.danger)),
-              ),
-            ],
-          ),
+        final leave = await showAppDialog(
+          context,
+          icon: Icons.delete_outline_rounded,
+          title: 'Discard this run?',
+          message: 'The recording will be lost. Tap Finish to keep it.',
+          cancel: 'Keep recording',
+          confirm: 'Discard',
+          danger: true,
         );
         if (!(leave ?? false) || !context.mounted) return;
         await ref.read(runRecorderProvider.notifier).discard();
@@ -140,8 +134,18 @@ class _GpsChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final signal = ref.watch(runRecorderProvider.select((s) => s.problem == null ? s.signal : GpsSignal.good));
+    final onSteps = ref.watch(runRecorderProvider.select((s) => s.onSteps));
     if (signal == GpsSignal.good) return const SizedBox.shrink();
-    final searching = signal == GpsSignal.searching;
+    final p = context.palette;
+    final (icon, label, color) = switch (signal) {
+      GpsSignal.searching => (Icons.gps_not_fixed_rounded, 'Finding GPS…', Metric.burnDot),
+      GpsSignal.lost => (
+        Icons.gps_off_rounded,
+        onSteps ? 'GPS disconnected · using steps' : 'GPS disconnected',
+        p.danger,
+      ),
+      _ => (Icons.gps_off_rounded, 'Weak GPS signal', Metric.burnDot),
+    };
     return Semantics(
       liveRegion: true,
       child: Glass(
@@ -151,11 +155,13 @@ class _GpsChip extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(searching ? Icons.gps_not_fixed_rounded : Icons.gps_off_rounded, size: 16, color: Metric.burnDot),
+            Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(
-              searching ? 'Finding GPS…' : 'Weak GPS signal',
-              style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: context.palette.text),
+            Flexible(
+              child: Text(
+                label,
+                style: AppText.small.copyWith(fontWeight: FontWeight.w600, color: p.text),
+              ),
             ),
           ],
         ),

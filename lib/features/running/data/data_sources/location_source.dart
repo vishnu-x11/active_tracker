@@ -13,7 +13,13 @@ abstract interface class LocationSource {
 
   Future<TrackPoint?> current();
 
-  Stream<GpsFix> fixes({bool background = false});
+  Stream<GpsFix> fixes({bool background = false, bool rawGps = false});
+
+  Stream<bool> serviceEnabled();
+
+  Future<GpsFix?> poll({bool rawGps = false});
+
+  Future<bool> serviceOn();
 
   Future<void> openSettings();
 
@@ -62,14 +68,15 @@ class GeolocatorLocationSource implements LocationSource {
   }
 
   @override
-  Stream<GpsFix> fixes({bool background = false}) => Geolocator.getPositionStream(
-    locationSettings: _settings(background),
+  Stream<GpsFix> fixes({bool background = false, bool rawGps = false}) => Geolocator.getPositionStream(
+    locationSettings: _settings(background, rawGps),
   ).map((p) => GpsFix(_point(p), accuracy: p.accuracy, speed: p.speed < 0 ? 0 : p.speed));
 
-  static LocationSettings _settings(bool background) => switch (defaultTargetPlatform) {
+  static LocationSettings _settings(bool background, bool rawGps) => switch (defaultTargetPlatform) {
     TargetPlatform.android => AndroidSettings(
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 0,
+      forceLocationManager: rawGps,
       intervalDuration: const Duration(seconds: 1),
       foregroundNotificationConfig: background
           ? const ForegroundNotificationConfig(
@@ -91,6 +98,36 @@ class GeolocatorLocationSource implements LocationSource {
     ),
     _ => const LocationSettings(accuracy: LocationAccuracy.best),
   };
+
+  @override
+  Future<GpsFix?> poll({bool rawGps = false}) async {
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: defaultTargetPlatform == TargetPlatform.android
+            ? AndroidSettings(
+                accuracy: LocationAccuracy.bestForNavigation,
+                forceLocationManager: rawGps,
+                timeLimit: const Duration(seconds: 8),
+              )
+            : const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: Duration(seconds: 8)),
+      );
+      return GpsFix(_point(p), accuracy: p.accuracy, speed: p.speed < 0 ? 0 : p.speed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Stream<bool> serviceEnabled() => Geolocator.getServiceStatusStream().map((s) => s == ServiceStatus.enabled);
+
+  @override
+  Future<bool> serviceOn() async {
+    try {
+      return await Geolocator.isLocationServiceEnabled();
+    } catch (_) {
+      return true;
+    }
+  }
 
   @override
   Future<void> openSettings() async {
