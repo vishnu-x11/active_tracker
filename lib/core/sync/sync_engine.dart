@@ -5,11 +5,15 @@ import 'remote_store.dart';
 
 typedef SyncReport = ({int pushed, int pulled});
 
+typedef SyncAccount = ({String? name, String? email});
+
 class SyncEngine {
-  SyncEngine(this._database, this._remote);
+  SyncEngine(this._database, this._remote, {SyncAccount Function()? account})
+    : _account = account ?? (() => (name: null, email: null));
 
   final AppDatabase _database;
   final RemoteStore _remote;
+  final SyncAccount Function() _account;
 
   static const synced = [
     Tables.gymSessions,
@@ -24,6 +28,19 @@ class SyncEngine {
   static const routePart = 1000;
   static String routeCollection(String runId) => '${Tables.runs}/$runId/route';
   static const _owner = 'sync.owner';
+  static const _profileDoc = 'sync.profile_doc';
+  static const _userDoc = 'sync.user_doc';
+  static const legacyProfileDoc = 'me';
+
+  static String profileDocId(SyncAccount account) {
+    for (final candidate in [account.name, account.email]) {
+      final id = (candidate ?? '').trim().replaceAll('/', '-');
+      if (id.isEmpty || id == '.' || id == '..' || (id.startsWith('__') && id.endsWith('__'))) continue;
+      return id;
+    }
+    return legacyProfileDoc;
+  }
+
   static String _pullKey(String table) => 'sync.pulled.$table';
 
   Database get _db => _database.db;
@@ -77,6 +94,7 @@ class SyncEngine {
           await txn.delete(t);
         }
         await txn.delete(Tables.settings, where: "key LIKE 'sync.pulled.%'");
+        await txn.delete(Tables.settings, where: 'key IN (?, ?)', whereArgs: [_profileDoc, _userDoc]);
         await txn.delete(
           Tables.settings,
           where: 'key IN (${List.filled(AppDatabase.syncedSettings.length, '?').join(', ')})',
@@ -106,9 +124,22 @@ class SyncEngine {
       }
     }
     n += await _pushSettings(uid);
-    final profile = await _db.query(Tables.profile, where: 'uid = ? AND synced = 0', whereArgs: [uid]);
+    final account = _account();
+    final docId = profileDocId(account);
+    final previous = await _database.setting(_profileDoc) ?? legacyProfileDoc;
+    final moved = previous != docId;
+    final profile = await _db.query(
+      Tables.profile,
+      where: moved ? 'uid = ?' : 'uid = ? AND synced = 0',
+      whereArgs: [uid],
+    );
     for (final row in profile) {
-      if (!await _put(uid, Tables.profile, 'me', {...row}..remove('synced'))) continue;
+      final doc = {...row}..remove('synced');
+      if (account.name case final name?) doc['name'] = name;
+      if (account.email case final email?) doc['email'] = email;
+      if (!await _put(uid, Tables.profile, docId, doc)) continue;
+      if (moved && !await _delete(uid, Tables.profile, previous)) continue;
+      await _database.setSetting(_profileDoc, docId);
       await _db.update(
         Tables.profile,
         {'synced': 1},
@@ -117,7 +148,35 @@ class SyncEngine {
       );
       n++;
     }
+    await _pushUser(uid, account);
     return n;
+  }
+
+  Future<void> _pushUser(String uid, SyncAccount account) async {
+    if (account.name == null && account.email == null) return;
+    final key = '${account.name ?? ''}|${account.email ?? ''}';
+    if (await _database.setting(_userDoc) == key) return;
+    try {
+      await _remote.putUser(uid, {
+        'name': account.name,
+        'email': account.email,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      _failed ??= e;
+      return;
+    }
+    await _database.setSetting(_userDoc, key);
+  }
+
+  Future<bool> _delete(String uid, String table, String id) async {
+    try {
+      await _remote.delete(uid, table, id);
+      return true;
+    } catch (e) {
+      _failed ??= e;
+      return false;
+    }
   }
 
   Future<bool> _putRoute(String uid, String id, Map<String, Object?> row, Map<String, Object?> doc) async {

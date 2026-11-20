@@ -21,6 +21,14 @@ class FakeRemote implements RemoteStore {
     (docs['$uid/$collection'] ??= {})[id] = {...data};
   }
 
+  final users = <String, Map<String, Object?>>{};
+
+  @override
+  Future<void> putUser(String uid, Map<String, Object?> data) async => (users[uid] ??= {}).addAll(data);
+
+  @override
+  Future<void> delete(String uid, String collection, String id) async => docs['$uid/$collection']?.remove(id);
+
   @override
   Future<Map<String, Object?>?> get(String uid, String collection, String id) async => docs['$uid/$collection']?[id];
 
@@ -274,6 +282,43 @@ void main() {
     await expectLater(SyncEngine(a, remote).sync('u1'), throwsA(isA<StateError>()));
     expect((await a.db.query(Tables.protein)).single['synced'], 1);
     expect((await a.db.query(Tables.water)).single['synced'], 0);
+  });
+
+  test('the profile is saved under the user name and the user folder shows name and email', () async {
+    final remote = FakeRemote();
+    final a = await device(), b = await device();
+    await a.db.insert(Tables.profile, {
+      'uid': 'u1',
+      'weight_kg': 70.0,
+      'height_cm': 175.0,
+      'updated_at': 5,
+      'deleted': 0,
+      'synced': 0,
+    });
+    await SyncEngine(a, remote).sync('u1');
+    expect(remote.docs['u1/profile']!.keys, ['me'], reason: 'an older app saved it as me');
+
+    var name = 'Vishnu P V';
+    SyncAccount account() => (name: name, email: 'runner@example.com');
+    await SyncEngine(a, remote, account: account).sync('u1');
+    expect(remote.docs['u1/profile']!.keys, ['Vishnu P V']);
+    expect(remote.docs['u1/profile']!['Vishnu P V']!['email'], 'runner@example.com');
+    expect(remote.users['u1'], containsPair('name', 'Vishnu P V'));
+    expect(remote.users['u1'], containsPair('email', 'runner@example.com'));
+
+    name = 'Vishnu/Runner';
+    await SyncEngine(a, remote, account: account).sync('u1');
+    expect(remote.docs['u1/profile']!.keys, ['Vishnu-Runner'], reason: 'a renamed account moves the entry');
+    expect(remote.users['u1'], containsPair('name', 'Vishnu/Runner'));
+
+    expect(await SyncEngine(b, remote, account: account).restoreProfile('u1'), isTrue);
+    expect((await b.db.query(Tables.profile)).single['weight_kg'], 70.0);
+  });
+
+  test('without a name the email is used, and with neither it stays me', () {
+    expect(SyncEngine.profileDocId((name: '  ', email: 'a@b.com')), 'a@b.com');
+    expect(SyncEngine.profileDocId((name: null, email: null)), 'me');
+    expect(SyncEngine.profileDocId((name: '__x__', email: null)), 'me');
   });
 }
 

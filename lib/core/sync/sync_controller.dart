@@ -22,7 +22,14 @@ class DataRevision extends Notifier<int> {
 final remoteStoreProvider = Provider<RemoteStore>((ref) => FirestoreRemoteStore(FirebaseFirestore.instance));
 
 final syncEngineProvider = Provider<SyncEngine>(
-  (ref) => SyncEngine(ref.watch(appDatabaseProvider), ref.watch(remoteStoreProvider)),
+  (ref) => SyncEngine(
+    ref.watch(appDatabaseProvider),
+    ref.watch(remoteStoreProvider),
+    account: () {
+      final user = ref.read(firebaseAuthProvider).currentUser;
+      return (name: user?.displayName, email: user?.email);
+    },
+  ),
 );
 
 typedef SyncStatus = ({DateTime? lastSynced, String? error, bool running});
