@@ -51,8 +51,22 @@ class FakeLocation implements LocationSource {
   Stream<GpsFix> fixes({bool background = false, bool rawGps = false}) {
     backgroundCalls.add(background);
     rawCalls.add(rawGps);
-    return controller.stream.map(GpsFix.new);
+    final out = StreamController<GpsFix>();
+    final subs = <StreamSubscription<GpsFix>>[];
+    out.onListen = () {
+      subs
+        ..add(controller.stream.map(GpsFix.new).listen(out.add))
+        ..add(raw.stream.listen(out.add));
+    };
+    out.onCancel = () async {
+      for (final s in subs) {
+        await s.cancel();
+      }
+    };
+    return out.stream;
   }
+
+  final raw = StreamController<GpsFix>.broadcast();
 
   final polls = <bool>[];
   GpsFix? Function()? onPoll;
@@ -68,6 +82,14 @@ class FakeLocation implements LocationSource {
 
   @override
   Future<bool> serviceOn() async => on;
+
+  @override
+  bool restartsInBackground = false;
+
+  int stops = 0;
+
+  @override
+  Future<void> stopRecording() async => stops++;
 
   @override
   Future<void> openSettings() async {}
