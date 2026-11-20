@@ -6,6 +6,10 @@ abstract interface class RemoteStore {
   Future<Map<String, Object?>?> get(String uid, String collection, String id);
 
   Future<List<Map<String, Object?>>> changedSince(String uid, String collection, int since);
+
+  Future<void> putUser(String uid, Map<String, Object?> data);
+
+  Future<void> delete(String uid, String collection, String id);
 }
 
 class FirestoreRemoteStore implements RemoteStore {
@@ -21,6 +25,13 @@ class FirestoreRemoteStore implements RemoteStore {
   @override
   Future<void> put(String uid, String collection, String id, Map<String, Object?> data) =>
       _col(uid, collection).doc(id).set(data);
+
+  @override
+  Future<void> putUser(String uid, Map<String, Object?> data) =>
+      _db.collection('users').doc(uid).set(data, SetOptions(merge: true));
+
+  @override
+  Future<void> delete(String uid, String collection, String id) => _col(uid, collection).doc(id).delete();
 
   @override
   Future<Map<String, Object?>?> get(String uid, String collection, String id) async =>
