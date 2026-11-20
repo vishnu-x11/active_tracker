@@ -9,6 +9,8 @@ abstract interface class Speaker {
 class TtsSpeaker implements Speaker {
   TtsSpeaker();
 
+  static const _maxSpeech = Duration(seconds: 15);
+
   FlutterTts? _tts;
   Future<void> _queue = Future.value();
 
@@ -27,7 +29,7 @@ class TtsSpeaker implements Speaker {
   @override
   Future<void> say(String text) => _queue = _queue.then((_) async {
     try {
-      await (await _engine()).speak(text);
+      await (await _engine()).speak(text).timeout(_maxSpeech);
     } catch (_) {}
   });
 

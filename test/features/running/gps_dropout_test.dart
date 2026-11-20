@@ -59,8 +59,11 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     }
     expect(s().signal, GpsSignal.lost);
-    expect(speaker.said, contains(RunRecorderNotifier.lostWithSteps));
-    expect(speaker.said.where((l) => l.startsWith('GPS disconnected')), hasLength(1));
+    expect(
+      speaker.said.where((l) => l == RunRecorderNotifier.lost),
+      hasLength(11),
+      reason: 'from 10 s, then every 5 s',
+    );
     expect(gps.rawCalls.length, greaterThan(calls), reason: 'the dead GPS stream is rebuilt');
     expect(gps.rawCalls.skip(calls), contains(isTrue), reason: 'falls back to the raw GPS provider');
     expect(s().meters, closeTo(1000 + 180 * 1.25, 1));
@@ -107,7 +110,7 @@ void main() {
     now = now.add(const Duration(seconds: 1));
     await tester.pump(const Duration(seconds: 1));
     expect(s().signal, GpsSignal.lost);
-    expect(speaker.said.last, RunRecorderNotifier.lostNoSteps);
+    expect(speaker.said.last, RunRecorderNotifier.lostLocationOff);
     expect(find.text('GPS disconnected'), findsOneWidget);
 
     final calls = gps.backgroundCalls.length;
@@ -211,7 +214,7 @@ void main() {
       now = now.add(const Duration(seconds: 1));
       await tester.pump(const Duration(milliseconds: 100));
       expect(s().signal, GpsSignal.lost);
-      expect(speaker.said.last, RunRecorderNotifier.lostWithSteps, reason: 'spoken at once, not after 15 s');
+      expect(speaker.said.last, RunRecorderNotifier.lostLocationOff, reason: 'spoken at once, not after 15 s');
 
       for (var sec = 1; sec <= 20; sec++) {
         now = now.add(const Duration(seconds: 1));
@@ -237,4 +240,49 @@ void main() {
       expect(s().status, RecorderStatus.recording);
     },
   );
+
+  testWidgets('with its own recording service the stalled GPS is rebuilt even in the background', (tester) async {
+    final gps = FakeLocation()
+      ..here = north(0, 0)
+      ..restartsInBackground = true;
+    var now = DateTime(2026, 11, 20, 7, 24);
+    await pumpFeature(
+      tester,
+      routes: [GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen())],
+      initial: '/rec',
+      overrides: [locationSourceProvider.overrideWithValue(gps), recorderClockProvider.overrideWithValue(() => now)],
+    );
+    final container = ProviderScope.containerOf(tester.element(find.byType(RunRecordScreen)));
+    RunRecorderState s() => container.read(runRecorderProvider);
+
+    await tester.tap(find.text('Start'));
+    await settleWithIo(tester);
+    final start = now;
+    for (var i = 0; i <= 10; i++) {
+      now = start.add(Duration(seconds: i * 3));
+      gps.controller.add(north(i * 10.0, now.millisecondsSinceEpoch));
+      await tester.pump(const Duration(seconds: 3));
+    }
+    final binding = tester.binding;
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    final streams = gps.rawCalls.length;
+
+    for (var sec = 1; sec <= 20; sec++) {
+      now = now.add(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(gps.rawCalls.length, greaterThan(streams), reason: 'the stalled GPS is restarted in the background');
+    expect(gps.rawCalls.skip(streams), contains(isTrue), reason: 'switches to the raw GPS chip');
+
+    now = now.add(const Duration(seconds: 1));
+    gps.controller.add(north(160, now.millisecondsSinceEpoch));
+    await tester.pump();
+    expect(s().signal, GpsSignal.good);
+
+    await tester.tap(find.text('Finish'));
+    await settleWithIo(tester, rounds: 10);
+    expect(gps.stops, 1, reason: 'the recording service stops with the run');
+  });
 }
