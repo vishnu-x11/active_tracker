@@ -34,6 +34,7 @@ class RunRecorderState {
     this.meters = 0,
     this.speedMps,
     this.onSteps = false,
+    this.waiting = false,
   });
 
   final RecorderStatus status;
@@ -58,8 +59,10 @@ class RunRecorderState {
   final double meters;
   final double? speedMps;
   final bool onSteps;
+  final bool waiting;
 
   static const minPaceSpeedMps = 0.5;
+  static const minAvgPaceKm = 0.1;
 
   double get km => meters / 1000;
   int get kcal => (1.04 * weightKg * km).floor();
@@ -76,7 +79,7 @@ class RunRecorderState {
     return d < 20 || s <= 0 ? null : s / (d / 1000);
   }
 
-  double? get avgPace => km < 0.02 || elapsedMs == 0 ? null : (elapsedMs / 1000) / km;
+  double? get avgPace => km < minAvgPaceKm || elapsedMs == 0 ? null : (elapsedMs / 1000) / km;
 
   RunRecorderState copyWith({
     RecorderStatus? status,
@@ -96,6 +99,7 @@ class RunRecorderState {
     double? meters,
     double? Function()? speedMps,
     bool? onSteps,
+    bool? waiting,
   }) => RunRecorderState(
     status: status ?? this.status,
     points: points ?? this.points,
@@ -114,6 +118,7 @@ class RunRecorderState {
     meters: meters ?? this.meters,
     speedMps: speedMps != null ? speedMps() : this.speedMps,
     onSteps: onSteps ?? this.onSteps,
+    waiting: waiting ?? this.waiting,
   );
 
   @override
@@ -135,7 +140,8 @@ class RunRecorderState {
       other.restored == restored &&
       other.meters == meters &&
       other.speedMps == speedMps &&
-      other.onSteps == onSteps;
+      other.onSteps == onSteps &&
+      other.waiting == waiting;
 
   @override
   int get hashCode => Object.hash(
@@ -156,5 +162,6 @@ class RunRecorderState {
     meters,
     speedMps,
     onSteps,
+    waiting,
   );
 }

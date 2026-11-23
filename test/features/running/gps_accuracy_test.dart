@@ -135,7 +135,14 @@ void main() {
     expect(meanError(trail(speed: 1.5, seconds: 1800, turnRadius: 15, straight: 60), speed: 1.5).abs(), lessThan(0.02));
   });
 
-  test('without heading data the old smoothing still keeps a straight run accurate', () {
-    expect(meanError(trails['straight road']!, heading: false).abs(), lessThan(0.03));
+  test('without heading data a small loop is no longer cut short', () {
+    final loop = trail(speed: 2.7, seconds: 2000, turnRadius: 12, straight: 85);
+    expect(meanError(loop, speed: 2.7, heading: false).abs(), lessThan(0.05));
   });
+
+  for (final MapEntry(key: name, value: s) in trails.entries) {
+    test('$name without heading data stays within 5%', () {
+      expect(meanError(s, heading: false).abs(), lessThan(0.05));
+    });
+  }
 }

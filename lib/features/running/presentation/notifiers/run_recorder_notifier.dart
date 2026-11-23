@@ -42,6 +42,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   static const frozenMinM = 25.0;
   static const frozenMoveM = 15.0;
   static const liveStepM = 1.0;
+  static const startWaitMaxMs = 30000;
 
   static const lost = 'GPS is disconnected.';
   static const lostLocationOff = 'GPS is disconnected. Turn on location.';
@@ -75,6 +76,8 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   int? _lastAppendMs;
   bool _frozen = false;
   TrackPoint? _frozenAt;
+  bool _waiting = false;
+  int _startPressMs = 0;
   int? _learnSteps;
   double _learnM = 0;
   double _extraM = 0;
@@ -254,7 +257,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _hold();
     _recordingAtMs = _nowMs();
     _lastAppendMs = _recordingAtMs;
-    state = state.copyWith(status: RecorderStatus.recording, problem: () => null);
+    _waiting = true;
+    _startPressMs = _recordingAtMs!;
+    state = state.copyWith(status: RecorderStatus.recording, problem: () => null, waiting: true);
     unawaited(_startWatching(askSteps: true));
     _motion.reset(_nowMs(), state.here);
     _filter.reset();
@@ -345,7 +350,8 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
       case RecorderStatus.recording:
         final f = _filter.accept(fix);
         if (f == null) return;
-        _motion.onFix(f.point, now, speed: fix.speed);
+        final moved = _motion.onFix(f.point, now, speed: fix.speed);
+        if (_waiting && (moved || fix.speed >= GpsFilter.headingSpeed)) _beginMoving(now);
         final prev = state.speedMps;
         state = state.copyWith(speedMps: () => prev == null ? fix.speed : prev + speedSmoothing * (fix.speed - prev));
         if (f.keep) _append(f.point);
@@ -428,8 +434,22 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _alert(backAgain);
   }
 
+  void _beginMoving(int atMs) {
+    if (!_waiting) return;
+    _waiting = false;
+    _since = DateTime.fromMillisecondsSinceEpoch(atMs);
+    state = state.copyWith(waiting: false, elapsedMs: _moving());
+  }
+
   void _tick() {
     final now = _nowMs();
+    if (_waiting) {
+      if (now - _startPressMs >= startWaitMaxMs) {
+        _beginMoving(_startPressMs);
+      } else {
+        _since = ref.read(recorderClockProvider)();
+      }
+    }
     final lost = _lastGoodFixMs == null || now - _lastGoodFixMs! > lostMs;
     final disconnected = state.signal == GpsSignal.lost;
     final stepSpeed = disconnected ? _stepSpeed(now) : null;
@@ -440,6 +460,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     );
     _learnStride();
     if (state.settings.autoPauseActive &&
+        !_waiting &&
         state.signal == GpsSignal.good &&
         _motion.isStill(now) &&
         !_stepsMoving(now)) {
@@ -481,6 +502,11 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
 
   void pause() {
     _pausedWhileLost = state.signal == GpsSignal.lost;
+    if (_waiting) {
+      _waiting = false;
+      _since = ref.read(recorderClockProvider)();
+      state = state.copyWith(waiting: false);
+    }
     if (state.status == RecorderStatus.autoPaused) {
       state = state.copyWith(status: RecorderStatus.paused);
       return;
@@ -681,6 +707,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     final now = _nowMs();
     _steps = total;
     _cadence.add(now, total);
+    if (_waiting && state.status == RecorderStatus.recording && _stepsMoving(now)) _beginMoving(now);
     if (state.status == RecorderStatus.autoPaused && _stepsMoving(now)) {
       _closeGap();
       _resume(announce: 'Resumed.');

@@ -19,6 +19,7 @@ class GpsFilter {
     this.processNoiseMps = 6,
     this.velocityNoiseMps = 0.8,
     this.movingStepM = 5,
+    this.fallbackAccuracyScale = 0.4,
   });
 
   final double maxAccuracyM;
@@ -27,6 +28,7 @@ class GpsFilter {
   final double processNoiseMps;
   final double velocityNoiseMps;
   final double movingStepM;
+  final double fallbackAccuracyScale;
 
   static const minReportedSpeed = 0.3;
   static const minProcessNoiseMps = 1.5;
@@ -100,7 +102,8 @@ class GpsFilter {
           _variance += dt * q * q;
         }
       }
-      final denom = _variance + acc * acc;
+      final r = v == null && fix.speed >= headingSpeed ? acc * fallbackAccuracyScale : acc;
+      final denom = _variance + r * r;
       final k = denom == 0 ? 1.0 : _variance / denom;
       _lat = _lat! + k * (p.lat - _lat!);
       _lng = _lng! + k * (p.lng - _lng!);

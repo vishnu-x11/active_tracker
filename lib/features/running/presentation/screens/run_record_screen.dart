@@ -27,6 +27,7 @@ class RunRecordScreen extends ConsumerWidget {
       if (id != null) context.pushReplacement(RunRoutes.fromRecording(id));
     });
     final status = ref.watch(runRecorderProvider.select((s) => s.status));
+    final waiting = ref.watch(runRecorderProvider.select((s) => s.waiting));
     final points = ref.watch(runRecorderProvider.select((s) => s.points));
     final here = ref.watch(runRecorderProvider.select((s) => s.here));
     return PopScope(
@@ -65,7 +66,7 @@ class RunRecordScreen extends ConsumerWidget {
                           onPressed: () => Navigator.maybePop(context),
                         ),
                         const Spacer(),
-                        if (status != RecorderStatus.ready) _StatusPill(status: status),
+                        if (status != RecorderStatus.ready) _StatusPill(status: status, waiting: waiting),
                         const Spacer(),
                         GlassIconButton(
                           icon: Icons.tune_rounded,
@@ -90,14 +91,16 @@ class RunRecordScreen extends ConsumerWidget {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
+  const _StatusPill({required this.status, required this.waiting});
 
   final RecorderStatus status;
+  final bool waiting;
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
       RecorderStatus.ready => ('Ready', context.palette.sub),
+      RecorderStatus.recording when waiting => ('Start moving', Metric.cta.last),
       RecorderStatus.recording => ('Recording', Metric.startDot),
       RecorderStatus.paused => ('Paused', Metric.burnDot),
       RecorderStatus.autoPaused => ('Auto-paused', Metric.burnDot),

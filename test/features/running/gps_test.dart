@@ -167,13 +167,14 @@ void main() {
 
     await tester.tap(find.text('Start'));
     await settleWithIo(tester);
-    expect(find.text('Recording'), findsOneWidget);
+    expect(find.text('Start moving'), findsOneWidget);
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final p in track(101, startT: now)) {
       gps.controller.add(p);
     }
     await settleWithIo(tester);
     expect(find.text('1.00 km'), findsOneWidget);
+    expect(find.text('Recording'), findsOneWidget);
 
     await tester.tap(find.text('Pause'));
     await tester.pump();

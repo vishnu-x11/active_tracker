@@ -164,7 +164,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(s().status, RecorderStatus.autoPaused);
     expect(find.text('Auto-paused'), findsOneWidget);
-    expect(s().elapsedMs, 303000);
+    expect(s().elapsedMs, 300000);
     expect(speaker.said.last, 'Auto-paused.');
 
     now = now.add(const Duration(seconds: 30));
@@ -172,7 +172,7 @@ void main() {
     await tester.pump();
     expect(s().status, RecorderStatus.recording);
     expect(s().segment, 1);
-    expect(s().elapsedMs, 303000);
+    expect(s().elapsedMs, 300000);
     expect(speaker.said.last, 'Resumed.');
 
     await tester.tap(find.text('Finish'));
