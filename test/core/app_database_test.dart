@@ -109,4 +109,20 @@ void main() {
     expect(rows['sync.owner']!['synced'], 1);
     expect(await upgraded.setting('run.settings'), '{"voice":false}');
   });
+
+  test('upgrading from version 8 adds the GPS reading log and keeps existing runs', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v8.db';
+    final fresh = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    await fresh.db.execute('DROP TABLE ${Tables.runFixes}');
+    await fresh.db.insert(Tables.settings, {'key': 'sync.owner', 'value': 'u'});
+    await fresh.db.setVersion(8);
+    await fresh.close();
+
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    expect(await upgraded.db.query(Tables.runFixes), isEmpty);
+    expect(await upgraded.setting('sync.owner'), 'u');
+  });
 }

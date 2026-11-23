@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:active_tracker/core/providers/core_providers.dart';
+import 'package:active_tracker/core/storage/app_database.dart';
 import 'package:active_tracker/features/running/data/data_sources/location_source.dart';
 import 'package:active_tracker/features/running/domain/entities/track_point.dart';
 import 'package:active_tracker/features/running/domain/use_cases/track_math.dart';
@@ -190,6 +192,9 @@ void main() {
     expect(find.text('Save GPS run'), findsOneWidget);
     expect(find.text('Auto-filled'), findsOneWidget);
     expect(find.text('Going for a run now?'), findsNothing);
+    final logged = await tester.runAsync(() => container.read(appDatabaseProvider).db.query(Tables.runFixes));
+    expect(logged, hasLength(101));
+    expect(logged!.map((r) => r['run_sync_id']).toSet().single, isNot(AppDatabase.recordingFixesId));
 
     await tester.tap(find.textContaining('Save run'));
     await settleWithIo(tester, rounds: 12);

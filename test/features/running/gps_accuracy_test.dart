@@ -145,4 +145,40 @@ void main() {
       expect(meanError(s, heading: false).abs(), lessThan(0.05));
     });
   }
+  passThroughTests();
+}
+
+void passThroughTests() {
+  final loop = trail(speed: 2.65, seconds: 2000, turnRadius: 35, straight: 35);
+
+  test('smooth phone GPS on a small loop is recorded as-is and stays within 2%', () {
+    final truth = truthMeters(loop);
+    for (var seed = 1; seed <= 4; seed++) {
+      final f = GpsFilter();
+      final fixes = noisy(loop, seed: seed, white: 0.3, bias: 0.5, accuracy: 6, speed: 2.65);
+      final passed = [for (final x in fixes) f.accept(x)?.passed ?? false].where((p) => p).length;
+      expect(passed / fixes.length, greaterThan(0.9));
+      final f2 = GpsFilter();
+      expect((filtered(fixes, filter: f2) / truth - 1).abs(), lessThan(0.02));
+    }
+  });
+
+  test('jittery GPS keeps going through the smoothing filter', () {
+    final f = GpsFilter();
+    final fixes = noisy(loop, seed: 1, white: 1.5, accuracy: 10, speed: 2.65);
+    final passed = [for (final x in fixes) f.accept(x)?.passed ?? false].where((p) => p).length;
+    expect(passed / fixes.length, lessThan(0.05));
+  });
+
+  test('poor accuracy or standing still is never passed through', () {
+    final slow = trail(speed: 0.5, seconds: 300, turnRadius: 1e9, straight: 1e9);
+    final f = GpsFilter();
+    for (final x in noisy(slow, seed: 2, white: 0.3, bias: 0.5, accuracy: 5, speed: 0.5)) {
+      expect(f.accept(x)?.passed ?? false, isFalse);
+    }
+    final g = GpsFilter();
+    for (final x in noisy(loop, seed: 2, white: 0.5, bias: 2, accuracy: 15, speed: 2.65)) {
+      expect(g.accept(x)?.passed ?? false, isFalse);
+    }
+  });
 }

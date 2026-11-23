@@ -4,6 +4,19 @@
 <dict>
 	<key>GMSApiKey</key>
 	<string>$(MAPS_API_KEY)</string>
+	<key>GIDClientID</key>
+	<string>773988908810-cib8t1sveptlfeevld2tjeqdrppmf2ke.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.773988908810-cib8t1sveptlfeevld2tjeqdrppmf2ke</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

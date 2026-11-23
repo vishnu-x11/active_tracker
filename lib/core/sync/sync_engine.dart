@@ -27,6 +27,8 @@ class SyncEngine {
   static const settingsCollection = 'settings';
   static const routePart = 1000;
   static String routeCollection(String runId) => '${Tables.runs}/$runId/route';
+  static const fixPart = 1000;
+  static String fixesCollection(String runId) => '${Tables.runs}/$runId/fixes';
   static const _owner = 'sync.owner';
   static const _profileDoc = 'sync.profile_doc';
   static const _userDoc = 'sync.user_doc';
@@ -90,7 +92,7 @@ class SyncEngine {
     if (owner == uid) return;
     if (owner != null) {
       await _db.transaction((txn) async {
-        for (final t in [...synced, Tables.runPoints]) {
+        for (final t in [...synced, Tables.runPoints, Tables.runFixes]) {
           await txn.delete(t);
         }
         await txn.delete(Tables.settings, where: "key LIKE 'sync.pulled.%'");
@@ -188,8 +190,32 @@ class SyncEngine {
       if (!ok) return false;
     }
     doc['route_parts'] = parts;
+    if (row['deleted'] == 1) return true;
+    final fixes = await _fixesOf(id);
+    if (fixes.isEmpty) return true;
+    final fixParts = (fixes.length / fixPart).ceil();
+    for (var i = 0; i < fixParts; i++) {
+      final end = (i + 1) * fixPart < fixes.length ? (i + 1) * fixPart : fixes.length;
+      final ok = await _put(uid, fixesCollection(id), '$i', {'i': i, 'fixes': fixes.sublist(i * fixPart, end)});
+      if (!ok) return false;
+    }
+    doc['fix_parts'] = fixParts;
     return true;
   }
+
+  Future<List<Map<String, Object?>>> _fixesOf(String runId) async => [
+    for (final f in await _db.query(Tables.runFixes, where: 'run_sync_id = ?', whereArgs: [runId], orderBy: 'seq'))
+      {
+        'a': f['at'],
+        't': f['t'],
+        'la': f['lat'],
+        'ln': f['lng'],
+        'al': f['alt'],
+        'ac': f['acc'],
+        'sp': f['speed'],
+        'h': f['heading'],
+      },
+  ];
 
   Future<List<Object?>?> _routeOf(String uid, String id, Map<String, Object?> doc) async {
     if (doc['points'] case final List<Object?> legacy) return legacy;

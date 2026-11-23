@@ -87,6 +87,7 @@ final getUnfinishedRecordingProvider = Provider(
 );
 final saveRecordingProgressProvider = Provider((ref) => SaveRecordingProgress(ref.watch(recordingRepositoryProvider)));
 final clearRecordingProvider = Provider((ref) => ClearRecording(ref.watch(recordingRepositoryProvider)));
+final appendRawFixesProvider = Provider((ref) => AppendRawFixes(ref.watch(recordingRepositoryProvider)));
 
 final unfinishedRecordingProvider = FutureProvider.autoDispose<Recording?>(
   (ref) async => (await ref.watch(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)())).valueOrNull,

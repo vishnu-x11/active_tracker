@@ -1,4 +1,5 @@
 import '../../../../core/result.dart';
+import '../entities/raw_fix.dart';
 import '../entities/recording.dart';
 import '../repositories/recording_repository.dart';
 
@@ -34,4 +35,11 @@ class ClearRecording {
   final RecordingRepository _repository;
 
   Future<Result<void>> call() => _repository.clear();
+}
+
+class AppendRawFixes {
+  const AppendRawFixes(this._repository);
+  final RecordingRepository _repository;
+
+  Future<Result<void>> call(List<RawFix> fixes) => _repository.appendFixes(fixes);
 }

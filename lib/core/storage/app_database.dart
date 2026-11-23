@@ -7,6 +7,7 @@ abstract final class Tables {
   static const runs = 'runs';
   static const runPoints = 'run_points';
   static const runAnalysis = 'run_analysis';
+  static const runFixes = 'run_fixes';
   static const water = 'water_entries';
   static const protein = 'protein_entries';
   static const presets = 'user_presets';
@@ -22,6 +23,7 @@ abstract final class Tables {
     runs,
     runPoints,
     runAnalysis,
+    runFixes,
     water,
     protein,
     presets,
@@ -38,7 +40,7 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 8;
+  static const version = 9;
 
   static const syncedSettings = ['run.settings', 'reminders'];
 
@@ -82,6 +84,7 @@ class AppDatabase {
                 whereArgs: syncedSettings,
               );
             }
+            if (from < 9) await db.execute(_runFixesTable);
             return;
           }
           for (final t in Tables.all.reversed) {
@@ -115,6 +118,24 @@ class AppDatabase {
       version INTEGER NOT NULL,
       efforts TEXT NOT NULL,
       pace_bins TEXT NOT NULL
+    )''';
+
+  static const recordingFixesId = '_recording';
+
+  static const _runFixesTable =
+      '''
+    CREATE TABLE IF NOT EXISTS ${Tables.runFixes} (
+      run_sync_id TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      at INTEGER NOT NULL,
+      t INTEGER NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      alt REAL,
+      acc REAL NOT NULL,
+      speed REAL NOT NULL,
+      heading REAL,
+      PRIMARY KEY (run_sync_id, seq)
     )''';
 
   static const _routinesTable =
@@ -190,6 +211,7 @@ class AppDatabase {
           PRIMARY KEY (run_sync_id, seq)
         )''')
       ..execute(_runAnalysisTable)
+      ..execute(_runFixesTable)
       ..execute('''
         CREATE TABLE ${Tables.water} (
           sync_id TEXT PRIMARY KEY,

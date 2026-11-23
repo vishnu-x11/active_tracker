@@ -9,11 +9,13 @@ import '../../../../core/result.dart';
 import '../../../../core/sync/sync_controller.dart';
 import '../../../profile/profile_api.dart';
 import '../../data/data_sources/location_source.dart';
+import '../../domain/entities/raw_fix.dart';
 import '../../domain/entities/recording.dart';
 import '../../domain/entities/run_settings.dart';
 import '../../domain/entities/track_point.dart';
 import '../../domain/use_cases/gps_filter.dart';
 import '../../domain/use_cases/motion_detector.dart';
+import '../../domain/use_cases/speed_window.dart';
 import '../../domain/use_cases/step_distance.dart';
 import '../../domain/use_cases/track_math.dart';
 import '../../domain/use_cases/voice_cues.dart';
@@ -28,7 +30,6 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   static const maxAccuracyM = 25.0;
   static const hereAccuracyM = 50.0;
   static const lostMs = 10000;
-  static const speedSmoothing = 0.3;
   static const restartAfterMs = 15000;
   static const disconnectedAfterMs = 10000;
   static const alertEveryMs = 5000;
@@ -97,6 +98,8 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
 
   final _motion = MotionDetector();
   final _filter = GpsFilter(maxAccuracyM: maxAccuracyM);
+  final _speeds = SpeedWindow();
+  final _rawLog = <RawFix>[];
   SplitCues? _splits;
   WorkoutCoach? _coach;
 
@@ -177,6 +180,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     final now = _nowMs();
     if (!force && now - _lastSaveMs < 5000) return;
     _lastSaveMs = now;
+    _flushFixes();
     final snapshot = Recording(
       points: state.points,
       segment: state.segment,
@@ -186,6 +190,14 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     );
     final save = ref.read(saveRecordingProgressProvider);
     _saves = _saves.then((_) => save(snapshot));
+  }
+
+  void _flushFixes() {
+    if (_rawLog.isEmpty) return;
+    final batch = List.of(_rawLog);
+    _rawLog.clear();
+    final append = ref.read(appendRawFixesProvider);
+    _saves = _saves.then((_) => append(batch));
   }
 
   Future<void> _forget() {
@@ -201,6 +213,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _gps = null;
     await gps?.cancel();
     await ref.read(locationSourceProvider).stopRecording();
+    _rawLog.clear();
     await _forget();
     _release();
   }
@@ -263,6 +276,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     unawaited(_startWatching(askSteps: true));
     _motion.reset(_nowMs(), state.here);
     _filter.reset();
+    _speeds.clear();
+    _rawLog.clear();
+    unawaited(_forget());
     _splits = SplitCues(state.settings.splitEveryM);
     _coach = WorkoutCoach(state.settings.workout);
     _resumeClock();
@@ -327,6 +343,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     final prevRaw = _lastFixPoint;
     _lastFixT = raw.t;
     _lastFixPoint = raw;
+    if (state.status == RecorderStatus.recording || state.status == RecorderStatus.autoPaused) {
+      _rawLog.add(RawFix(fix, at: now));
+    }
     if (_frozen && !_live(fix, prevRaw)) return;
     _frozen = false;
     if (fromStream) {
@@ -352,8 +371,8 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
         if (f == null) return;
         final moved = _motion.onFix(f.point, now, speed: fix.speed);
         if (_waiting && (moved || fix.speed >= GpsFilter.headingSpeed)) _beginMoving(now);
-        final prev = state.speedMps;
-        state = state.copyWith(speedMps: () => prev == null ? fix.speed : prev + speedSmoothing * (fix.speed - prev));
+        _speeds.add(now, fix.speed);
+        state = state.copyWith(speedMps: () => _speeds.value(now));
         if (f.keep) _append(f.point);
         _progress();
       case RecorderStatus.autoPaused:
@@ -487,6 +506,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _before = _moving();
     _since = null;
     _ticker?.cancel();
+    _speeds.clear();
   }
 
   void _autoPause() {
@@ -532,6 +552,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _recordingAtMs = _nowMs();
     _lastAppendMs = _recordingAtMs;
     _stepsAtPoint = _steps;
+    _speeds.clear();
     _resumeClock();
     if (announce != null) _say(announce);
     _persist(force: true);
@@ -559,6 +580,9 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     _gps = null;
     await gps?.cancel();
     await ref.read(locationSourceProvider).stopRecording();
+    if (!ref.mounted) return;
+    _flushFixes();
+    await _saves;
     if (!ref.mounted) return;
     state = state.copyWith(saving: true, error: () => null);
     final hour = DateTime.now().hour;

@@ -38,6 +38,17 @@ class TrackLocalDataSourceImpl implements TrackLocalDataSource {
       });
     }
     await batch.commit(noResult: true);
+    await txn.delete(
+      Tables.runFixes,
+      where: 'run_sync_id != ? AND run_sync_id NOT IN (SELECT sync_id FROM ${Tables.runs})',
+      whereArgs: [AppDatabase.recordingFixesId],
+    );
+    await txn.update(
+      Tables.runFixes,
+      {'run_sync_id': draft.id},
+      where: 'run_sync_id = ?',
+      whereArgs: [AppDatabase.recordingFixesId],
+    );
   });
 
   @override
