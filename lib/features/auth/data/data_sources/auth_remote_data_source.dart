@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 abstract interface class AuthRemoteDataSource {
@@ -11,12 +12,22 @@ abstract interface class AuthRemoteDataSource {
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  AuthRemoteDataSourceImpl(this._auth, this._google);
+  AuthRemoteDataSourceImpl(this._auth, this._google, {Future<FirebaseAuth> Function()? signUpAuth})
+    : _signUpAuth = signUpAuth ?? _separateAuth;
 
   final FirebaseAuth _auth;
   final GoogleSignIn _google;
+  final Future<FirebaseAuth> Function() _signUpAuth;
 
   static const googleServerClientId = '773988908810-g9edgsr32bj76ncpc545e0r29p54mfu5.apps.googleusercontent.com';
+  static const signUpAppName = 'sign_up';
+
+  static Future<FirebaseAuth> _separateAuth() async {
+    final app =
+        Firebase.apps.where((a) => a.name == signUpAppName).firstOrNull ??
+        await Firebase.initializeApp(name: signUpAppName, options: Firebase.app().options);
+    return FirebaseAuth.instanceFor(app: app);
+  }
 
   User _require(UserCredential c) => c.user ?? (throw StateError('Firebase returned no user'));
 
@@ -26,9 +37,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> createAccount({required String name, required String email, required String password}) async {
-    final user = _require(await _auth.createUserWithEmailAndPassword(email: email, password: password));
-    await user.updateDisplayName(name);
-    await _auth.signOut();
+    final auth = await _signUpAuth();
+    final user = _require(await auth.createUserWithEmailAndPassword(email: email, password: password));
+    try {
+      await user.updateDisplayName(name);
+    } finally {
+      await auth.signOut();
+    }
   }
 
   @override

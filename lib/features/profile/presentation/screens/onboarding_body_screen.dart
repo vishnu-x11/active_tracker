@@ -93,31 +93,28 @@ class _OnboardingBodyScreenState extends ConsumerState<OnboardingBodyScreen> {
           ],
         ),
         const SectionLabel('Optional, for resting burn'),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: GlassField(
-                label: 'Age',
-                controller: _age,
-                onChanged: notifier.setAge,
-                hint: 'e.g. 29',
-                error: ageError,
-                keyboardType: TextInputType.number,
-                inputFormatters: _whole,
-                textInputAction: TextInputAction.done,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(flex: 7, child: _SexPicker()),
-          ],
+        GlassField(
+          label: 'Age',
+          labelWidth: _labelWidth,
+          controller: _age,
+          onChanged: notifier.setAge,
+          unit: 'yrs',
+          hint: 'e.g. 29',
+          error: ageError,
+          keyboardType: TextInputType.number,
+          inputFormatters: _whole,
+          textInputAction: TextInputAction.done,
         ),
+        const SizedBox(height: 10),
+        const _SexPicker(),
         const SizedBox(height: 20),
         const DailyTargetsCard(),
       ],
     );
   }
 }
+
+const _labelWidth = 92.0;
 
 class _SexPicker extends ConsumerWidget {
   const _SexPicker();
@@ -129,39 +126,38 @@ class _SexPicker extends ConsumerWidget {
     return Glass(
       kind: GlassKind.control,
       radius: 18,
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+      child: Row(
         children: [
-          Text(
-            'Sex',
-            style: AppText.eyebrow.copyWith(letterSpacing: 0, fontWeight: FontWeight.w500, color: p.sub),
+          SizedBox(
+            width: _labelWidth,
+            child: Text('Gender', maxLines: 1, softWrap: false, style: AppText.body.copyWith(color: p.sub)),
           ),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<Sex?>(
-              value: sex,
-              isExpanded: true,
-              isDense: true,
-              hint: Text(
-                'Choose',
-                style: AppText.number.copyWith(fontWeight: FontWeight.w600, color: p.sub),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<Sex?>(
+                value: sex,
+                isExpanded: true,
+                isDense: true,
+                hint: Text(
+                  'Choose',
+                  style: AppText.number.copyWith(fontWeight: FontWeight.w600, color: p.sub),
+                ),
+                icon: Icon(Icons.expand_more_rounded, color: p.sub),
+                dropdownColor: p.pageTop,
+                borderRadius: BorderRadius.circular(18),
+                style: AppText.number.copyWith(fontWeight: FontWeight.w600, color: p.text),
+                items: [
+                  for (final s in Sex.values)
+                    DropdownMenuItem(
+                      value: s,
+                      child: Text(s.label, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: ref.read(onboardingProvider.notifier).setSex,
               ),
-              icon: Icon(Icons.expand_more_rounded, color: p.sub),
-              dropdownColor: p.pageTop,
-              borderRadius: BorderRadius.circular(18),
-              style: AppText.number.copyWith(fontWeight: FontWeight.w600, color: p.text),
-              items: [
-                for (final s in Sex.values)
-                  DropdownMenuItem(
-                    value: s,
-                    child: Text(s.label, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: ref.read(onboardingProvider.notifier).setSex,
             ),
           ),
-          const SizedBox(height: 6),
         ],
       ),
     );
