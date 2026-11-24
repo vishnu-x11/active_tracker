@@ -38,7 +38,7 @@ Future<AppDatabase> pumpFeature(
     ..devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final db = await tester.runAsync(() async {
-    final db = await AppDatabase.open(path: inMemoryDatabasePath, factory: databaseFactoryFfi);
+    final db = await AppDatabase.open(path: inMemoryDatabasePath, factory: databaseFactoryFfi, shared: false);
     for (final t in Tables.all.reversed) {
       await db.db.delete(t);
     }

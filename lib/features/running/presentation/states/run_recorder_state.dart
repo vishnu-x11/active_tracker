@@ -24,7 +24,7 @@ class RunRecorderState {
     this.problem,
     this.error,
     this.saving = false,
-    this.draftId,
+    this.finishedId,
     this.weightKg = 75,
     this.here,
     this.settings = const RunSettings(),
@@ -47,7 +47,7 @@ class RunRecorderState {
   final String? error;
   final bool saving;
 
-  final String? draftId;
+  final String? finishedId;
   final double weightKg;
 
   final TrackPoint? here;
@@ -89,7 +89,7 @@ class RunRecorderState {
     LocationProblem? Function()? problem,
     String? Function()? error,
     bool? saving,
-    String? draftId,
+    String? finishedId,
     double? weightKg,
     TrackPoint? here,
     RunSettings? settings,
@@ -108,7 +108,7 @@ class RunRecorderState {
     problem: problem != null ? problem() : this.problem,
     error: error != null ? error() : this.error,
     saving: saving ?? this.saving,
-    draftId: draftId ?? this.draftId,
+    finishedId: finishedId ?? this.finishedId,
     weightKg: weightKg ?? this.weightKg,
     here: here ?? this.here,
     settings: settings ?? this.settings,
@@ -131,7 +131,7 @@ class RunRecorderState {
       other.problem == problem &&
       other.error == error &&
       other.saving == saving &&
-      other.draftId == draftId &&
+      other.finishedId == finishedId &&
       other.weightKg == weightKg &&
       other.here == here &&
       other.settings == settings &&
@@ -152,7 +152,7 @@ class RunRecorderState {
     problem,
     error,
     saving,
-    draftId,
+    finishedId,
     weightKg,
     here,
     settings,

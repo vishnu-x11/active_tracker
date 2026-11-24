@@ -20,7 +20,7 @@ abstract final class RunRoutes {
   static String edit(String id) => '/run/$id/edit';
   static String replay(String id) => '/run/$id/replay';
 
-  static String fromRecording(String draftId) => '/run/new?recording=$draftId';
+  static String fromRecording(String runId) => '/run/new?recording=$runId';
 
   static const records = '/run/records';
   static const predictions = '/run/predictions';
@@ -43,8 +43,13 @@ abstract final class RunRoutes {
     GoRoute(path: workouts, builder: (context, state) => const WorkoutsScreen()),
     GoRoute(
       path: newRun,
-      pageBuilder: (context, state) =>
-          MaterialPage(fullscreenDialog: true, child: RunLogScreen(id: state.uri.queryParameters['recording'])),
+      pageBuilder: (context, state) => MaterialPage(
+        fullscreenDialog: true,
+        child: RunLogScreen(
+          id: state.uri.queryParameters['recording'],
+          fromRecording: state.uri.queryParameters.containsKey('recording'),
+        ),
+      ),
     ),
     GoRoute(
       path: '/run/:id',

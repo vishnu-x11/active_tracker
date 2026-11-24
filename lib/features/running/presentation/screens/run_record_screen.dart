@@ -23,7 +23,7 @@ class RunRecordScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(runRecorderProvider.select((s) => s.draftId), (_, id) {
+    ref.listen(runRecorderProvider.select((s) => s.finishedId), (_, id) {
       if (id != null) context.pushReplacement(RunRoutes.fromRecording(id));
     });
     final status = ref.watch(runRecorderProvider.select((s) => s.status));
@@ -34,17 +34,20 @@ class RunRecordScreen extends ConsumerWidget {
       canPop: status == RecorderStatus.ready,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final leave = await showAppDialog(
+        final discard = await showAppDialog(
           context,
-          icon: Icons.delete_outline_rounded,
-          title: 'Discard this run?',
-          message: 'The recording will be lost. Tap Finish to keep it.',
-          cancel: 'Keep recording',
+          icon: Icons.directions_run_rounded,
+          title: 'End this run?',
+          message: 'Save it to your activities or discard the recording. Close this to keep recording.',
+          cancel: 'Save run',
           confirm: 'Discard',
           danger: true,
+          closable: true,
         );
-        if (!(leave ?? false) || !context.mounted) return;
-        await ref.read(runRecorderProvider.notifier).discard();
+        if (discard == null || !context.mounted) return;
+        final recorder = ref.read(runRecorderProvider.notifier);
+        if (!discard) return recorder.finish();
+        await recorder.discard();
         if (context.mounted) context.pop();
       },
       child: Scaffold(

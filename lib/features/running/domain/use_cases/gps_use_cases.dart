@@ -8,15 +8,15 @@ import '../entities/track_point.dart';
 import '../repositories/track_repository.dart';
 import 'track_math.dart';
 
-class SaveRunDraft {
-  const SaveRunDraft(this._repository, {required this.newId});
+class SaveRecordedRun {
+  const SaveRecordedRun(this._repository, {required this.newId});
 
   final TrackRepository _repository;
   final String Function() newId;
 
   static const minMeters = 10;
 
-  Future<Result<String>> call({
+  Future<Result<Run>> call({
     required List<TrackPoint> points,
     required double weightKg,
     required String title,
@@ -28,7 +28,7 @@ class SaveRunDraft {
       return const Err(ValidationFailure('Too short to save. Move a little further, then finish.'));
     }
     final start = DateTime.fromMillisecondsSinceEpoch(points.first.t);
-    final draft = Run(
+    final run = Run(
       id: newId(),
       day: dayKey(start),
       startedAt: start,
@@ -40,10 +40,9 @@ class SaveRunDraft {
       weightKg: weightKg,
       kcal: runKcal(weightKg: weightKg, km: meters / 1000),
       elevationM: TrackMath.elevationGain(points),
-      draft: true,
     );
-    return switch (await _repository.saveDraft(draft, points)) {
-      Ok() => Ok(draft.id),
+    return switch (await _repository.saveRecorded(run, points)) {
+      Ok() => Ok(run),
       Err(:final failure) => Err(failure),
     };
   }

@@ -12,6 +12,7 @@ Future<bool?> showAppDialog(
   required String confirm,
   bool danger = false,
   bool dismissible = true,
+  bool closable = false,
 }) => showDialog<bool>(
   context: context,
   barrierDismissible: dismissible,
@@ -21,11 +22,30 @@ Future<bool?> showAppDialog(
     return AlertDialog(
       backgroundColor: p.pageTop,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      icon: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), shape: BoxShape.circle),
-        child: Icon(icon, color: accent, size: 30),
+      icon: SizedBox(
+        width: double.infinity,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), shape: BoxShape.circle),
+              child: Icon(icon, color: accent, size: 30),
+            ),
+            if (closable)
+              Positioned(
+                top: -12,
+                right: -12,
+                child: IconButton(
+                  tooltip: 'Close',
+                  icon: Icon(Icons.close_rounded, color: p.sub),
+                  onPressed: () => Navigator.pop(c),
+                ),
+              ),
+          ],
+        ),
       ),
       title: Text(
         title,

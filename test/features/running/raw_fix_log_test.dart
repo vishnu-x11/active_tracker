@@ -6,6 +6,7 @@ import 'package:active_tracker/features/running/data/repositories/recording_repo
 import 'package:active_tracker/features/running/data/repositories/track_repository_impl.dart';
 import 'package:active_tracker/features/running/domain/entities/gps_fix.dart';
 import 'package:active_tracker/features/running/domain/entities/raw_fix.dart';
+import 'package:active_tracker/features/running/domain/entities/run.dart';
 import 'package:active_tracker/features/running/domain/entities/track_point.dart';
 import 'package:active_tracker/features/running/domain/use_cases/gps_use_cases.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,12 +40,12 @@ void main() {
   tearDown(() => db.close());
 
   Future<String> finish(String id) async {
-    final saved = await SaveRunDraft(TrackRepositoryImpl(TrackLocalDataSourceImpl(db)), newId: () => id)(
+    final saved = await SaveRecordedRun(TrackRepositoryImpl(TrackLocalDataSourceImpl(db)), newId: () => id)(
       points: track(11),
       weightKg: 70,
       title: 'Morning Run',
     );
-    return (saved as Ok<String>).value;
+    return (saved as Ok<Run>).value.id;
   }
 
   test('every GPS reading is logged in order and moves onto the saved run', () async {
@@ -68,7 +69,7 @@ void main() {
     expect(await db.db.query(Tables.runFixes), isEmpty);
   });
 
-  test('readings of a deleted draft are cleaned up when the next run is saved', () async {
+  test('readings of a deleted run are cleaned up when the next run is saved', () async {
     await recording.appendFixes(fixes(0, 2));
     await finish('old');
     await db.db.delete(Tables.runs, where: 'sync_id = ?', whereArgs: ['old']);
@@ -80,7 +81,6 @@ void main() {
   test('the readings are uploaded with the run, in parts', () async {
     await recording.appendFixes(fixes(0, SyncEngine.fixPart + 5));
     final id = await finish('run1');
-    await db.db.update(Tables.runs, {'draft': 0});
     final remote = FakeRemote();
     await SyncEngine(db, remote).sync('u1');
     expect(remote.docs['u1/${Tables.runs}']![id]!['fix_parts'], 2);

@@ -195,12 +195,17 @@ void main() {
     final logged = await tester.runAsync(() => container.read(appDatabaseProvider).db.query(Tables.runFixes));
     expect(logged, hasLength(101));
     expect(logged!.map((r) => r['run_sync_id']).toSet().single, isNot(AppDatabase.recordingFixesId));
+    final finished = await tester.runAsync(() => container.read(appDatabaseProvider).db.query(Tables.runs));
+    expect(finished!.single['draft'], 0, reason: 'Finish keeps the run even if the Save screen is left');
+    expect(finished.single['synced'], 0);
 
     await tester.tap(find.textContaining('Save run'));
     await settleWithIo(tester, rounds: 12);
     expect(find.text('1.00 km'), findsWidgets);
     expect(find.textContaining('Recorded with GPS'), findsOneWidget);
-    expect(find.text('Pace per km'), findsOneWidget);
+    expect(find.text('Splits'), findsOneWidget);
+    expect(find.text('Moving time'), findsOneWidget);
+    expect(find.text('Fastest split'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Replay run'));
     await settleWithIo(tester);
@@ -302,6 +307,52 @@ void main() {
     await settleWithIo(tester);
     expect(find.text('go'), findsOneWidget);
     expect(await tester.runAsync(() => db.setting('run.recording')), isNull);
+  });
+
+  testWidgets('leaving a run asks to save or discard, and the close icon keeps recording', (tester) async {
+    final gps = FakeLocation()..here = const TrackPoint(lat: 12.9, lng: 77.6, t: 0);
+    final db = await pumpFeature(
+      tester,
+      routes: [
+        GoRoute(
+          path: '/start',
+          builder: (c, s) => TextButton(onPressed: () => c.push('/rec'), child: const Text('go')),
+        ),
+        GoRoute(path: '/rec', builder: (c, s) => const RunRecordScreen()),
+        ...RunRoutes.routes().where((r) => r is GoRoute && r.path != RunRoutes.record),
+      ],
+      initial: '/start',
+      height: 6000,
+      overrides: [locationSourceProvider.overrideWithValue(gps)],
+    );
+    await tester.tap(find.text('go'));
+    await settleWithIo(tester);
+    await tester.tap(find.text('Start'));
+    await settleWithIo(tester);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final p in track(51, startT: now)) {
+      gps.controller.add(p);
+    }
+    await settleWithIo(tester);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('End this run?'), findsOneWidget);
+    expect(find.text('Save run'), findsOneWidget);
+    expect(find.text('Keep recording'), findsNothing);
+    await tester.tap(find.byTooltip('Close').last);
+    await settleWithIo(tester);
+    expect(find.text('End this run?'), findsNothing);
+    expect(find.text('Recording'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save run'));
+    await settleWithIo(tester, rounds: 10);
+    expect(find.text('Save GPS run'), findsOneWidget);
+    final runs = await tester.runAsync(() => db.db.query(Tables.runs));
+    expect(runs!.single['draft'], 0);
+    expect(runs.single['distance_m'], 500);
   });
 
   testWidgets('location blocked shows the reason', (tester) async {

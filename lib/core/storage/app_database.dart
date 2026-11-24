@@ -40,17 +40,18 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 9;
+  static const version = 10;
 
   static const syncedSettings = ['run.settings', 'reminders'];
 
-  static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
+  static Future<AppDatabase> open({String? path, DatabaseFactory? factory, bool shared = true}) async {
     final f = factory ?? databaseFactory;
     final dbPath = path ?? p.join(await f.getDatabasesPath(), fileName);
     final db = await f.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: version,
+        singleInstance: shared,
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, _) => _create(db),
         onUpgrade: (db, from, _) async {
@@ -85,6 +86,18 @@ class AppDatabase {
               );
             }
             if (from < 9) await db.execute(_runFixesTable);
+            final hasRuns = await db.query(
+              'sqlite_master',
+              where: "type = 'table' AND name = ?",
+              whereArgs: [Tables.runs],
+            );
+            if (from < 10 && hasRuns.isNotEmpty) {
+              await db.update(Tables.runs, {
+                'draft': 0,
+                'synced': 0,
+                'updated_at': DateTime.now().millisecondsSinceEpoch,
+              }, where: 'draft = 1 AND deleted = 0');
+            }
             return;
           }
           for (final t in Tables.all.reversed) {

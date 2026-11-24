@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/misc.dart' show KeepAliveLink;
 import '../../../../core/result.dart';
 import '../../../../core/sync/sync_controller.dart';
 import '../../../profile/profile_api.dart';
+import '../../../progress/progress.dart';
 import '../../data/data_sources/location_source.dart';
 import '../../domain/entities/raw_fix.dart';
 import '../../domain/entities/recording.dart';
@@ -152,7 +153,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
   }
 
   Future<void> _restore() async {
-    final result = await ref.read(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)());
+    final result = await ref.read(getUnfinishedRecordingProvider)();
     if (!ref.mounted || state.status != RecorderStatus.ready) return;
     if (result case Ok(value: final r?)) {
       _before = r.movingMs;
@@ -587,7 +588,7 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
     state = state.copyWith(saving: true, error: () => null);
     final hour = DateTime.now().hour;
     final title = hour < 11 ? 'Morning Run' : (hour < 14 ? 'Lunch Run' : (hour < 19 ? 'Evening Run' : 'Night Run'));
-    final result = await ref.read(saveRunDraftProvider)(
+    final result = await ref.read(saveRecordedRunProvider)(
       points: state.points,
       weightKg: state.weightKg,
       title: title,
@@ -599,8 +600,13 @@ class RunRecorderNotifier extends Notifier<RunRecorderState> {
         await _forget();
         if (!ref.mounted) return;
         _say('Run finished. ${Speech.distance(state.meters)} in ${Speech.duration(state.elapsedMs ~/ 1000)}.');
+        invalidateDay(ref, value.day);
+        ref
+          ..invalidate(runAnalysesProvider)
+          ..invalidate(personalRecordsProvider);
+        ref.read(syncControllerProvider.notifier).nudge();
         _release();
-        state = state.copyWith(saving: false, draftId: value);
+        state = state.copyWith(saving: false, finishedId: value.id);
       case Err(:final failure):
         state = state.copyWith(saving: false, error: () => failure.message);
         unawaited(_listen(background: true));

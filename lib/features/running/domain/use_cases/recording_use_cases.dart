@@ -7,12 +7,10 @@ class GetUnfinishedRecording {
   const GetUnfinishedRecording(this._repository);
   final RecordingRepository _repository;
 
-  static const maxAge = Duration(hours: 24);
-
-  Future<Result<Recording?>> call({required DateTime now}) async {
+  Future<Result<Recording?>> call() async {
     final result = await _repository.load();
     return switch (result) {
-      Ok(value: final r?) when r.points.isEmpty || now.difference(r.savedAt) > maxAge => _drop(),
+      Ok(value: final r?) when r.points.isEmpty => _drop(),
       _ => result,
     };
   }

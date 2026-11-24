@@ -19,8 +19,8 @@ class TrackRepositoryImpl implements TrackRepository {
   }
 
   @override
-  Future<Result<void>> saveDraft(Run draft, List<TrackPoint> points) =>
-      _guard(() => _local.saveDraft(draft, points), "Couldn't keep the recording. Please try again.");
+  Future<Result<void>> saveRecorded(Run run, List<TrackPoint> points) =>
+      _guard(() => _local.saveRecorded(run, points), "Couldn't keep the recording. Please try again.");
 
   @override
   Future<Result<List<TrackPoint>>> points(String runId) =>

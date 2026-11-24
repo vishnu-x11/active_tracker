@@ -16,6 +16,7 @@ import '../../domain/use_cases/run_metrics.dart';
 import '../../running_routes.dart';
 import '../providers.dart';
 import '../widgets/gps_sections.dart';
+import '../widgets/run_detail_sections.dart';
 import '../widgets/run_share_card.dart';
 import '../widgets/run_stat_grid.dart';
 
@@ -105,88 +106,102 @@ class _Body extends ConsumerWidget {
     final p = context.palette;
     final r = run;
     final gps = r.source == RunSource.gps;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      children: [
-        FormHeader(
-          title: '',
-          onBack: () => context.pop(),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Share run',
-                icon: Icon(Icons.ios_share_rounded, color: p.text),
-                onPressed: () => showSharePreview(
-                  context,
-                  name: 'run-${r.id}',
-                  text: '${r.title}: ${r.km.toStringAsFixed(2)} km',
-                  card: RunShareCard(
-                    run: r,
-                    points: gps ? ref.read(runTrackProvider(r.id)).value ?? const [] : const [],
-                  ),
-                ),
+    final header = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: FormHeader(
+        title: '',
+        onBack: () => context.pop(),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Share run',
+              icon: Icon(Icons.ios_share_rounded, color: p.text),
+              onPressed: () => showSharePreview(
+                context,
+                name: 'run-${r.id}',
+                text: '${r.title}: ${r.km.toStringAsFixed(2)} km',
+                card: RunShareCard(run: r, points: gps ? ref.read(runTrackProvider(r.id)).value ?? const [] : const []),
               ),
-              _Menu(run: r, onDelete: () => _delete(context, ref)),
-            ],
-          ),
-        ),
-        if (gps) ...[const SizedBox(height: 12), RunMapHeader(run: r)],
-        const SizedBox(height: 12),
-        Text(r.title, style: AppText.display.copyWith(color: p.text)),
-        const SizedBox(height: 4),
-        Text(
-          '${shortDate(r.startedAt)} ${r.startedAt.year} · ${clockTime(r.startedAt)} · '
-          '${gps ? 'Recorded with GPS' : 'Logged manually'} · ${r.type.label}',
-          style: AppText.small.copyWith(fontWeight: FontWeight.w500, color: p.sub),
-        ),
-        if (gps) EffortRankCard(run: r),
-        const SizedBox(height: 16),
-        Text.rich(
-          TextSpan(
-            text: r.km.toStringAsFixed(2),
-            children: [
-              TextSpan(
-                text: ' km',
-                style: AppText.title.copyWith(fontWeight: FontWeight.w500, color: p.sub),
-              ),
-            ],
-          ),
-          style: AppText.hero.copyWith(color: p.text),
-        ),
-        const SizedBox(height: 16),
-        RunStatGrid(
-          stats: [
-            RunStat(Icons.schedule_rounded, 'Duration', RunMetrics.clock(r.movingSec), ''),
-            RunStat(Icons.speed_rounded, 'Avg pace', formatPace(r.paceSecPerKm), '/km'),
-            RunStat(
-              Icons.local_fire_department_outlined,
-              r.kcalOverride == null ? 'Calories' : 'Calories (yours)',
-              '${r.kcalShown}',
-              'kcal',
             ),
-            RunStat(Icons.av_timer_rounded, 'Avg speed', r.speedKmh.toStringAsFixed(1), 'km/h'),
-            if (r.elevationM != null)
-              RunStat(Icons.terrain_rounded, 'Elevation gain', '${r.elevationM}', 'm')
-            else
-              RunStat(Icons.landscape_rounded, 'Type', r.type.label, ''),
-            RunStat(
-              Icons.bolt_rounded,
-              r.effort == null ? 'Effort' : 'Effort · ${effortNames[r.effort! - 1]}',
-              '${r.effort ?? '–'}',
-              '/5',
-            ),
+            _Menu(run: r, onDelete: () => _delete(context, ref)),
           ],
         ),
-        if (gps) GpsSections(run: r, justRecorded: justRecorded),
-        const SizedBox(height: 16),
-        Glass(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            r.kcalOverride == null
-                ? 'Calories: 1.04 x ${r.weightKg.toStringAsFixed(0)} kg x ${r.km.toStringAsFixed(2)} km = ${r.kcal} kcal (rounded down).'
-                : 'Calories are your own value. The estimate would be ${r.kcal} kcal.',
-            style: AppText.small.copyWith(color: p.sub),
+      ),
+    );
+    return Column(
+      children: [
+        header,
+        if (gps)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: RunMapHeader(run: r),
+          ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              Text(r.title, style: AppText.display.copyWith(color: p.text)),
+              const SizedBox(height: 4),
+              Text(
+                '${shortDate(r.startedAt)} ${r.startedAt.year} · ${clockTime(r.startedAt)} · '
+                '${gps ? 'Recorded with GPS' : 'Logged manually'} · ${r.type.label}',
+                style: AppText.small.copyWith(fontWeight: FontWeight.w500, color: p.sub),
+              ),
+              const SizedBox(height: 16),
+              Text.rich(
+                TextSpan(
+                  text: r.km.toStringAsFixed(2),
+                  children: [
+                    TextSpan(
+                      text: ' km',
+                      style: AppText.title.copyWith(fontWeight: FontWeight.w500, color: p.sub),
+                    ),
+                  ],
+                ),
+                style: AppText.hero.copyWith(color: p.text),
+              ),
+              const SizedBox(height: 16),
+              RunStatGrid(
+                stats: [
+                  RunStat(Icons.schedule_rounded, 'Duration', RunMetrics.clock(r.movingSec), ''),
+                  RunStat(Icons.speed_rounded, 'Avg pace', formatPace(r.paceSecPerKm), '/km'),
+                  RunStat(
+                    Icons.local_fire_department_outlined,
+                    r.kcalOverride == null ? 'Calories' : 'Calories (yours)',
+                    '${r.kcalShown}',
+                    'kcal',
+                  ),
+                  RunStat(Icons.av_timer_rounded, 'Avg speed', r.speedKmh.toStringAsFixed(1), 'km/h'),
+                  if (r.elevationM != null)
+                    RunStat(Icons.terrain_rounded, 'Elevation gain', '${r.elevationM}', 'm')
+                  else
+                    RunStat(Icons.landscape_rounded, 'Type', r.type.label, ''),
+                  RunStat(
+                    Icons.bolt_rounded,
+                    r.effort == null ? 'Effort' : 'Effort · ${effortNames[r.effort! - 1]}',
+                    '${r.effort ?? '–'}',
+                    '/5',
+                  ),
+                ],
+              ),
+              if (gps) ...[
+                RunResultsSection(run: r, justRecorded: justRecorded),
+                RunSplitsSection(run: r),
+                RunPaceSection(run: r),
+                RunElevationSection(run: r),
+              ],
+              const SizedBox(height: 16),
+              Glass(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  r.kcalOverride == null
+                      ? 'Calories: 1.04 x ${r.weightKg.toStringAsFixed(0)} kg x ${r.km.toStringAsFixed(2)} km = ${r.kcal} kcal (rounded down).'
+                      : 'Calories are your own value. The estimate would be ${r.kcal} kcal.',
+                  style: AppText.small.copyWith(color: p.sub),
+                ),
+              ),
+            ],
           ),
         ),
       ],

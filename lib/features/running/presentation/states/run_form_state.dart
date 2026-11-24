@@ -8,7 +8,6 @@ class RunFormState {
     required this.day,
     required this.startMinute,
     this.source = RunSource.manual,
-    this.isDraft = false,
     this.title = 'Morning Run',
     this.type = RunType.outdoor,
     this.kmText = '',
@@ -29,7 +28,6 @@ class RunFormState {
   final int startMinute;
   final RunSource source;
 
-  final bool isDraft;
   final String title;
   final RunType type;
   final String kmText;
@@ -63,7 +61,6 @@ class RunFormState {
     DateTime? day,
     int? startMinute,
     RunSource? source,
-    bool? isDraft,
     String? title,
     RunType? type,
     String? kmText,
@@ -82,7 +79,6 @@ class RunFormState {
     day: day ?? this.day,
     startMinute: startMinute ?? this.startMinute,
     source: source ?? this.source,
-    isDraft: isDraft ?? this.isDraft,
     title: title ?? this.title,
     type: type ?? this.type,
     kmText: kmText ?? this.kmText,
@@ -105,7 +101,6 @@ class RunFormState {
       other.day == day &&
       other.startMinute == startMinute &&
       other.source == source &&
-      other.isDraft == isDraft &&
       other.title == title &&
       other.type == type &&
       other.kmText == kmText &&
@@ -126,7 +121,6 @@ class RunFormState {
     day,
     startMinute,
     source,
-    isDraft,
     title,
     type,
     kmText,

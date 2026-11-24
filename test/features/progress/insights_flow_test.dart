@@ -120,7 +120,9 @@ void main() {
       seed: seedRuns,
     );
     await settleWithIo(tester, rounds: 20);
-    expect(find.text('Your fastest 1 km!'), findsOneWidget);
-    expect(find.text('Also fastest 400 m'), findsOneWidget);
+    expect(find.text('Results'), findsOneWidget);
+    expect(find.text('1K'), findsOneWidget);
+    expect(find.text('400m'), findsOneWidget);
+    expect(find.text('Best of all time!'), findsNWidgets(2));
   });
 }
