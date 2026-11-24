@@ -7,6 +7,7 @@ abstract final class Tables {
   static const runs = 'runs';
   static const runPoints = 'run_points';
   static const runAnalysis = 'run_analysis';
+  static const runFixes = 'run_fixes';
   static const water = 'water_entries';
   static const protein = 'protein_entries';
   static const presets = 'user_presets';
@@ -22,6 +23,7 @@ abstract final class Tables {
     runs,
     runPoints,
     runAnalysis,
+    runFixes,
     water,
     protein,
     presets,
@@ -38,20 +40,23 @@ class AppDatabase {
 
   static const fileName = 'active_tracker_v2.db';
 
-  static const version = 7;
+  static const version = 10;
 
-  static Future<AppDatabase> open({String? path, DatabaseFactory? factory}) async {
+  static const syncedSettings = ['run.settings', 'reminders'];
+
+  static Future<AppDatabase> open({String? path, DatabaseFactory? factory, bool shared = true}) async {
     final f = factory ?? databaseFactory;
     final dbPath = path ?? p.join(await f.getDatabasesPath(), fileName);
     final db = await f.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
         version: version,
+        singleInstance: shared,
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, _) => _create(db),
         onUpgrade: (db, from, _) async {
           if (from >= 3) {
-            if (from < 4) await db.execute(_settingsTable);
+            if (from < 4) await db.execute(_settingsTableV4);
             if (from < 5) {
               await db.execute('ALTER TABLE ${Tables.gymSessions} ADD COLUMN exercises TEXT');
               await db.execute(_routinesTable);
@@ -70,6 +75,29 @@ class AppDatabase {
                 await db.delete(Tables.settings, where: 'key = ?', whereArgs: [legacyZonesKey]);
               }
             }
+            if (from < 8) {
+              await db.execute('ALTER TABLE ${Tables.settings} ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0');
+              await db.execute('ALTER TABLE ${Tables.settings} ADD COLUMN synced INTEGER NOT NULL DEFAULT 1');
+              await db.update(
+                Tables.settings,
+                {'synced': 0, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+                where: 'key IN (${List.filled(syncedSettings.length, '?').join(', ')})',
+                whereArgs: syncedSettings,
+              );
+            }
+            if (from < 9) await db.execute(_runFixesTable);
+            final hasRuns = await db.query(
+              'sqlite_master',
+              where: "type = 'table' AND name = ?",
+              whereArgs: [Tables.runs],
+            );
+            if (from < 10 && hasRuns.isNotEmpty) {
+              await db.update(Tables.runs, {
+                'draft': 0,
+                'synced': 0,
+                'updated_at': DateTime.now().millisecondsSinceEpoch,
+              }, where: 'draft = 1 AND deleted = 0');
+            }
             return;
           }
           for (final t in Tables.all.reversed) {
@@ -87,8 +115,12 @@ class AppDatabase {
     deleted INTEGER NOT NULL DEFAULT 0,
     synced INTEGER NOT NULL DEFAULT 0''';
 
-  static const _settingsTable =
+  static const _settingsTableV4 =
       'CREATE TABLE IF NOT EXISTS ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL)';
+
+  static const _settingsTable =
+      'CREATE TABLE IF NOT EXISTS ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL, '
+      'updated_at INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 1)';
 
   static const legacyZonesKey = 'run.zones';
 
@@ -99,6 +131,24 @@ class AppDatabase {
       version INTEGER NOT NULL,
       efforts TEXT NOT NULL,
       pace_bins TEXT NOT NULL
+    )''';
+
+  static const recordingFixesId = '_recording';
+
+  static const _runFixesTable =
+      '''
+    CREATE TABLE IF NOT EXISTS ${Tables.runFixes} (
+      run_sync_id TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      at INTEGER NOT NULL,
+      t INTEGER NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      alt REAL,
+      acc REAL NOT NULL,
+      speed REAL NOT NULL,
+      heading REAL,
+      PRIMARY KEY (run_sync_id, seq)
     )''';
 
   static const _routinesTable =
@@ -174,6 +224,7 @@ class AppDatabase {
           PRIMARY KEY (run_sync_id, seq)
         )''')
       ..execute(_runAnalysisTable)
+      ..execute(_runFixesTable)
       ..execute('''
         CREATE TABLE ${Tables.water} (
           sync_id TEXT PRIMARY KEY,
@@ -233,8 +284,11 @@ class AppDatabase {
     return rows.isEmpty ? null : rows.single['value']! as String;
   }
 
-  Future<void> setSetting(String key, String value) =>
-      db.insert(Tables.settings, {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> setSetting(String key, String value) => db.insert(Tables.settings, {
+    'key': key,
+    'value': value,
+    if (syncedSettings.contains(key)) ...{'updated_at': DateTime.now().millisecondsSinceEpoch, 'synced': 0},
+  }, conflictAlgorithm: ConflictAlgorithm.replace);
 
   Future<void> deleteSetting(String key) => db.delete(Tables.settings, where: 'key = ?', whereArgs: [key]);
 

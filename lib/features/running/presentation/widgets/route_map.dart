@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,6 +10,73 @@ import '../../../../core/theme/app_palette.dart';
 import '../../domain/entities/track_point.dart';
 
 final mapTilesProvider = Provider<bool>((ref) => true);
+
+const mapPlaceholder = 'assets/images/map_placeholder.jpg';
+
+bool mapHasTiles(Uint8List png, {double minBytesPerPixel = 0.04}) {
+  if (png.length < 24) return false;
+  final header = ByteData.sublistView(png, 16, 24);
+  final pixels = header.getUint32(0) * header.getUint32(4);
+  return pixels > 0 && png.length / pixels >= minBytesPerPixel;
+}
+
+Future<void> waitForTiles(GoogleMapController map, {Duration max = const Duration(seconds: 8)}) async {
+  final end = DateTime.now().add(max);
+  while (DateTime.now().isBefore(end)) {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final Uint8List? png;
+    try {
+      png = await map.takeSnapshot();
+    } catch (_) {
+      return;
+    }
+    if (png != null && mapHasTiles(png)) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      return;
+    }
+  }
+}
+
+class MapLoading extends StatelessWidget {
+  const MapLoading({super.key, this.spinning = true});
+
+  final bool spinning;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      Image.asset(
+        mapPlaceholder,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => ColoredBox(color: context.palette.mapBg),
+      ),
+      const ColoredBox(color: Color(0x660B1220)),
+      if (spinning) const Center(child: CircularProgressIndicator(color: Colors.white)),
+    ],
+  );
+}
+
+class MapCover extends StatelessWidget {
+  const MapCover({super.key, required this.ready, required this.onGone});
+
+  final bool ready;
+  final VoidCallback onGone;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: ready,
+    child: AnimatedOpacity(
+      opacity: ready ? 0 : 1,
+      duration: const Duration(milliseconds: 350),
+      onEnd: () {
+        if (ready) onGone();
+      },
+      child: MapLoading(spinning: !ready),
+    ),
+  );
+}
 
 final _dots = <Color, BitmapDescriptor>{};
 
@@ -84,6 +153,8 @@ class _RouteMapState extends ConsumerState<RouteMap> {
   static BitmapDescriptor? _endDot;
 
   GoogleMapController? _map;
+  bool _ready = false;
+  bool _coverGone = false;
 
   LatLng? get _target {
     if (widget.here case final h?) return LatLng(h.lat, h.lng);
@@ -133,6 +204,9 @@ class _RouteMapState extends ConsumerState<RouteMap> {
 
   void _onCreated(GoogleMapController c) {
     _map = c;
+    waitForTiles(c).then((_) {
+      if (mounted) setState(() => _ready = true);
+    });
     if (!widget.follow) Future<void>.delayed(const Duration(milliseconds: 300), _frame);
   }
 
@@ -153,93 +227,87 @@ class _RouteMapState extends ConsumerState<RouteMap> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final target = _target;
-    if (!ref.watch(mapTilesProvider) || target == null) return ColoredBox(color: p.mapBg);
+    if (!ref.watch(mapTilesProvider)) return ColoredBox(color: p.mapBg);
+    if (target == null) return const MapLoading();
     final line = [for (final t in widget.points) LatLng(t.lat, t.lng)];
     final interactive = widget.interactive;
-    return RepaintBoundary(
-      child: GoogleMap(
-        initialCameraPosition: CameraPosition(
-          target: widget.follow ? target : line.firstOrNull ?? target,
-          zoom: widget.follow ? followZoom : 16,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: widget.follow ? target : line.firstOrNull ?? target,
+              zoom: widget.follow ? followZoom : 16,
+            ),
+            onMapCreated: _onCreated,
+            mapType: MapType.hybrid,
+            myLocationEnabled: widget.follow && widget.here != null,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            compassEnabled: false,
+            buildingsEnabled: false,
+            indoorViewEnabled: false,
+            trafficEnabled: false,
+            zoomGesturesEnabled: interactive,
+            scrollGesturesEnabled: interactive,
+            rotateGesturesEnabled: interactive,
+            tiltGesturesEnabled: interactive,
+            padding: widget.follow ? EdgeInsets.zero : const EdgeInsets.fromLTRB(0, 40, 0, 30),
+            polylines: {
+              if (line.length >= 2) ...{
+                Polyline(
+                  polylineId: const PolylineId('halo'),
+                  points: line,
+                  width: 9,
+                  color: Colors.white.withValues(alpha: 0.7),
+                  jointType: JointType.round,
+                  startCap: Cap.roundCap,
+                  endCap: Cap.roundCap,
+                ),
+                Polyline(
+                  polylineId: const PolylineId('route'),
+                  points: line,
+                  width: 5,
+                  color: Metric.cta.last,
+                  jointType: JointType.round,
+                  startCap: Cap.roundCap,
+                  endCap: Cap.roundCap,
+                  zIndex: 1,
+                ),
+              },
+            },
+            markers: {
+              if (line.isNotEmpty && _startDot != null)
+                Marker(
+                  markerId: const MarkerId('start'),
+                  position: line.first,
+                  icon: _startDot!,
+                  anchor: const Offset(0.5, 0.5),
+                ),
+              if (line.length > 1 && !widget.follow && _endDot != null)
+                Marker(
+                  markerId: const MarkerId('end'),
+                  position: line.last,
+                  icon: _endDot!,
+                  anchor: const Offset(0.5, 0.5),
+                ),
+              for (final (i, m) in widget.medals.indexed)
+                if (_medals[m.rank] case final icon?)
+                  Marker(
+                    markerId: MarkerId('medal_$i'),
+                    position: LatLng(m.at.lat, m.at.lng),
+                    icon: icon,
+                    anchor: const Offset(0.5, 0.5),
+                    zIndexInt: 2,
+                    infoWindow: InfoWindow(title: m.title, snippet: 'Lifetime'),
+                  ),
+            },
+          ),
         ),
-        onMapCreated: _onCreated,
-        style: p.mapBg == AppPalette.dark.mapBg ? mapDarkStyle : null,
-        myLocationEnabled: widget.follow && widget.here != null,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        mapToolbarEnabled: false,
-        compassEnabled: false,
-        buildingsEnabled: false,
-        indoorViewEnabled: false,
-        trafficEnabled: false,
-        zoomGesturesEnabled: interactive,
-        scrollGesturesEnabled: interactive,
-        rotateGesturesEnabled: interactive,
-        tiltGesturesEnabled: interactive,
-        padding: widget.follow ? EdgeInsets.zero : const EdgeInsets.fromLTRB(0, 40, 0, 30),
-        polylines: {
-          if (line.length >= 2) ...{
-            Polyline(
-              polylineId: const PolylineId('halo'),
-              points: line,
-              width: 9,
-              color: Colors.white.withValues(alpha: 0.7),
-              jointType: JointType.round,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-            ),
-            Polyline(
-              polylineId: const PolylineId('route'),
-              points: line,
-              width: 5,
-              color: Metric.burnDot,
-              jointType: JointType.round,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-              zIndex: 1,
-            ),
-          },
-        },
-        markers: {
-          if (line.isNotEmpty && _startDot != null)
-            Marker(
-              markerId: const MarkerId('start'),
-              position: line.first,
-              icon: _startDot!,
-              anchor: const Offset(0.5, 0.5),
-            ),
-          if (line.length > 1 && !widget.follow && _endDot != null)
-            Marker(
-              markerId: const MarkerId('end'),
-              position: line.last,
-              icon: _endDot!,
-              anchor: const Offset(0.5, 0.5),
-            ),
-          for (final (i, m) in widget.medals.indexed)
-            if (_medals[m.rank] case final icon?)
-              Marker(
-                markerId: MarkerId('medal_$i'),
-                position: LatLng(m.at.lat, m.at.lng),
-                icon: icon,
-                anchor: const Offset(0.5, 0.5),
-                zIndexInt: 2,
-                infoWindow: InfoWindow(title: m.title, snippet: 'Lifetime'),
-              ),
-        },
-      ),
+        if (!_coverGone) MapCover(ready: _ready, onGone: () => setState(() => _coverGone = true)),
+      ],
     );
   }
 }
-
-const mapDarkStyle = '''[
-{"elementType":"geometry","stylers":[{"color":"#1e2422"}]},
-{"elementType":"labels.text.fill","stylers":[{"color":"#8a948f"}]},
-{"elementType":"labels.text.stroke","stylers":[{"color":"#1e2422"}]},
-{"featureType":"poi","stylers":[{"visibility":"off"}]},
-{"featureType":"transit","stylers":[{"visibility":"off"}]},
-{"featureType":"road","elementType":"geometry","stylers":[{"color":"#2c3431"}]},
-{"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#222927"}]},
-{"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3a4440"}]},
-{"featureType":"water","elementType":"geometry","stylers":[{"color":"#121816"}]},
-{"featureType":"landscape.natural","elementType":"geometry","stylers":[{"color":"#1a2a22"}]}
-]''';

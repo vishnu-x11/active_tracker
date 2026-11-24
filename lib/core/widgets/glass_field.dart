@@ -24,6 +24,7 @@ class GlassField extends StatelessWidget {
     this.valueStyle,
     this.autofocus = false,
     this.textAlign = TextAlign.start,
+    this.labelWidth,
   });
 
   final String label;
@@ -45,62 +46,67 @@ class GlassField extends StatelessWidget {
   final bool autofocus;
   final TextAlign textAlign;
 
+  final double? labelWidth;
+
+  static TextStyle labelStyle(AppPalette p) =>
+      AppText.eyebrow.copyWith(letterSpacing: 0, fontWeight: FontWeight.w500, color: p.sub);
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final hasError = error != null;
+    final inline = labelWidth != null;
+    final labelText = inline
+        ? Text(label, maxLines: 1, softWrap: false, style: AppText.body.copyWith(color: p.sub))
+        : Text(label, style: labelStyle(p));
+    final value = Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            onChanged: onChanged,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            obscureText: obscureText,
+            autofillHints: autofillHints,
+            textInputAction: textInputAction,
+            onSubmitted: onSubmitted,
+            autofocus: autofocus,
+            textAlign: textAlign,
+            cursorColor: Metric.cta.last,
+            style: (valueStyle ?? AppText.number.copyWith(fontWeight: FontWeight.w600)).copyWith(color: p.text),
+            decoration: InputDecoration.collapsed(
+              hintText: hint,
+              hintStyle: AppText.body.copyWith(fontSize: 17, color: p.sub.withValues(alpha: 0.7)),
+            ),
+          ),
+        ),
+        if (unit != null) ...[
+          const SizedBox(width: 4),
+          Text(unit!, style: AppText.body.copyWith(color: p.sub)),
+          const SizedBox(width: 8),
+        ],
+      ],
+    );
     final field = Glass(
       kind: GlassKind.control,
       radius: 18,
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      padding: inline ? const EdgeInsets.fromLTRB(16, 16, 8, 16) : const EdgeInsets.fromLTRB(16, 10, 8, 10),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: AppText.eyebrow.copyWith(letterSpacing: 0, fontWeight: FontWeight.w500, color: p.sub),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        onChanged: onChanged,
-                        keyboardType: keyboardType,
-                        inputFormatters: inputFormatters,
-                        obscureText: obscureText,
-                        autofillHints: autofillHints,
-                        textInputAction: textInputAction,
-                        onSubmitted: onSubmitted,
-                        autofocus: autofocus,
-                        textAlign: textAlign,
-                        cursorColor: Metric.cta.last,
-                        style: (valueStyle ?? AppText.number.copyWith(fontWeight: FontWeight.w600)).copyWith(
-                          color: p.text,
-                        ),
-                        decoration: InputDecoration.collapsed(
-                          hintText: hint,
-                          hintStyle: AppText.body.copyWith(fontSize: 17, color: p.sub.withValues(alpha: 0.7)),
-                        ),
-                      ),
-                    ),
-                    if (unit != null) ...[
-                      const SizedBox(width: 4),
-                      Text(unit!, style: AppText.body.copyWith(color: p.sub)),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                ),
-              ],
+          if (inline) ...[
+            SizedBox(width: labelWidth, child: labelText),
+            Expanded(child: value),
+          ] else
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [labelText, const SizedBox(height: 2), value],
+              ),
             ),
-          ),
           ?suffix,
         ],
       ),

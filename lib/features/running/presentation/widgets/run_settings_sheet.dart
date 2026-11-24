@@ -73,23 +73,6 @@ class RunSettingsSheet extends ConsumerWidget {
                   value: s.autoPause,
                   onChanged: (v) => n.updateSettings(s.copyWith(autoPause: v)),
                 ),
-                const SizedBox(height: 10),
-                _Toggle(
-                  icon: Icons.record_voice_over_rounded,
-                  title: 'Voice coach',
-                  hint: 'Spoken splits, pace and workout steps',
-                  value: s.voice,
-                  onChanged: (v) => n.updateSettings(s.copyWith(voice: v)),
-                ),
-                if (s.voice) ...[
-                  const SizedBox(height: 14),
-                  const _Label('Announce splits'),
-                  GlassSegmented<int>(
-                    options: const [(0, 'Off'), (500, '0.5 km'), (1000, '1 km'), (2000, '2 km')],
-                    value: s.splitEveryM,
-                    onChanged: (v) => n.updateSettings(s.copyWith(splitEveryM: v)),
-                  ),
-                ],
                 const SizedBox(height: 18),
                 _Label(ready ? 'Workout' : 'Workout (locked while recording)'),
                 IgnorePointer(

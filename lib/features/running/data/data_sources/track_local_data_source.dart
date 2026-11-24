@@ -8,7 +8,7 @@ import '../models/run_model.dart';
 import '../models/track_analysis_model.dart';
 
 abstract interface class TrackLocalDataSource {
-  Future<void> saveDraft(Run draft, List<TrackPoint> points);
+  Future<void> saveRecorded(Run run, List<TrackPoint> points);
   Future<List<TrackPoint>> points(String runId);
 
   Future<List<Run>> gpsRuns();
@@ -23,12 +23,12 @@ class TrackLocalDataSourceImpl implements TrackLocalDataSource {
   final AppDatabase _database;
 
   @override
-  Future<void> saveDraft(Run draft, List<TrackPoint> points) => _database.db.transaction((txn) async {
-    await txn.insert(Tables.runs, draft.toRow(DateTime.now().millisecondsSinceEpoch));
+  Future<void> saveRecorded(Run run, List<TrackPoint> points) => _database.db.transaction((txn) async {
+    await txn.insert(Tables.runs, run.toRow(DateTime.now().millisecondsSinceEpoch));
     final batch = txn.batch();
     for (final (i, p) in points.indexed) {
       batch.insert(Tables.runPoints, {
-        'run_sync_id': draft.id,
+        'run_sync_id': run.id,
         'seq': i,
         'lat': p.lat,
         'lng': p.lng,
@@ -38,6 +38,17 @@ class TrackLocalDataSourceImpl implements TrackLocalDataSource {
       });
     }
     await batch.commit(noResult: true);
+    await txn.delete(
+      Tables.runFixes,
+      where: 'run_sync_id != ? AND run_sync_id NOT IN (SELECT sync_id FROM ${Tables.runs})',
+      whereArgs: [AppDatabase.recordingFixesId],
+    );
+    await txn.update(
+      Tables.runFixes,
+      {'run_sync_id': run.id},
+      where: 'run_sync_id = ?',
+      whereArgs: [AppDatabase.recordingFixesId],
+    );
   });
 
   @override

@@ -150,6 +150,26 @@ abstract final class EffortRanks {
     return out;
   }
 
+  static List<({Effort effort, int rank, double seconds})> results(List<RunAnalysis> runs, String runId) {
+    final me = runs.where((r) => r.runId == runId).firstOrNull;
+    if (me == null) return const [];
+    final out = [
+      for (final e in Effort.values)
+        if (me.efforts[e.meters] case final mine?)
+          (
+            effort: e,
+            rank:
+                1 +
+                runs
+                    .where((r) => r.runId != runId && (r.efforts[e.meters]?.seconds ?? double.infinity) < mine.seconds)
+                    .length,
+            seconds: mine.seconds,
+          ),
+    ];
+    out.sort((a, b) => a.rank != b.rank ? a.rank.compareTo(b.rank) : a.effort.meters.compareTo(b.effort.meters));
+    return out;
+  }
+
   static ({double seconds, String runId, DateTime date})? best(List<RunAnalysis> runs, Effort effort) {
     ({double seconds, String runId, DateTime date})? out;
     for (final r in runs) {

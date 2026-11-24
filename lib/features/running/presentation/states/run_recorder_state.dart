@@ -13,7 +13,7 @@ enum RecorderStatus {
   bool get stopped => this == paused || this == autoPaused;
 }
 
-enum GpsSignal { searching, weak, good }
+enum GpsSignal { searching, weak, good, lost }
 
 class RunRecorderState {
   const RunRecorderState({
@@ -24,7 +24,7 @@ class RunRecorderState {
     this.problem,
     this.error,
     this.saving = false,
-    this.draftId,
+    this.finishedId,
     this.weightKg = 75,
     this.here,
     this.settings = const RunSettings(),
@@ -33,6 +33,8 @@ class RunRecorderState {
     this.restored = false,
     this.meters = 0,
     this.speedMps,
+    this.onSteps = false,
+    this.waiting = false,
   });
 
   final RecorderStatus status;
@@ -45,7 +47,7 @@ class RunRecorderState {
   final String? error;
   final bool saving;
 
-  final String? draftId;
+  final String? finishedId;
   final double weightKg;
 
   final TrackPoint? here;
@@ -56,14 +58,18 @@ class RunRecorderState {
   final bool restored;
   final double meters;
   final double? speedMps;
+  final bool onSteps;
+  final bool waiting;
 
   static const minPaceSpeedMps = 0.5;
+  static const minAvgPaceKm = 0.1;
 
   double get km => meters / 1000;
   int get kcal => (1.04 * weightKg * km).floor();
 
   double? get currentPace {
     if (speedMps case final v? when v >= minPaceSpeedMps) return 1000 / v;
+    if (signal == GpsSignal.lost) return null;
     final seg = points.where((p) => p.segment == segment).toList();
     if (seg.length < 2) return null;
     final end = seg.last;
@@ -73,7 +79,7 @@ class RunRecorderState {
     return d < 20 || s <= 0 ? null : s / (d / 1000);
   }
 
-  double? get avgPace => km < 0.02 || elapsedMs == 0 ? null : (elapsedMs / 1000) / km;
+  double? get avgPace => km < minAvgPaceKm || elapsedMs == 0 ? null : (elapsedMs / 1000) / km;
 
   RunRecorderState copyWith({
     RecorderStatus? status,
@@ -83,7 +89,7 @@ class RunRecorderState {
     LocationProblem? Function()? problem,
     String? Function()? error,
     bool? saving,
-    String? draftId,
+    String? finishedId,
     double? weightKg,
     TrackPoint? here,
     RunSettings? settings,
@@ -92,6 +98,8 @@ class RunRecorderState {
     bool? restored,
     double? meters,
     double? Function()? speedMps,
+    bool? onSteps,
+    bool? waiting,
   }) => RunRecorderState(
     status: status ?? this.status,
     points: points ?? this.points,
@@ -100,7 +108,7 @@ class RunRecorderState {
     problem: problem != null ? problem() : this.problem,
     error: error != null ? error() : this.error,
     saving: saving ?? this.saving,
-    draftId: draftId ?? this.draftId,
+    finishedId: finishedId ?? this.finishedId,
     weightKg: weightKg ?? this.weightKg,
     here: here ?? this.here,
     settings: settings ?? this.settings,
@@ -109,6 +117,8 @@ class RunRecorderState {
     restored: restored ?? this.restored,
     meters: meters ?? this.meters,
     speedMps: speedMps != null ? speedMps() : this.speedMps,
+    onSteps: onSteps ?? this.onSteps,
+    waiting: waiting ?? this.waiting,
   );
 
   @override
@@ -121,7 +131,7 @@ class RunRecorderState {
       other.problem == problem &&
       other.error == error &&
       other.saving == saving &&
-      other.draftId == draftId &&
+      other.finishedId == finishedId &&
       other.weightKg == weightKg &&
       other.here == here &&
       other.settings == settings &&
@@ -129,7 +139,9 @@ class RunRecorderState {
       other.signal == signal &&
       other.restored == restored &&
       other.meters == meters &&
-      other.speedMps == speedMps;
+      other.speedMps == speedMps &&
+      other.onSteps == onSteps &&
+      other.waiting == waiting;
 
   @override
   int get hashCode => Object.hash(
@@ -140,7 +152,7 @@ class RunRecorderState {
     problem,
     error,
     saving,
-    draftId,
+    finishedId,
     weightKg,
     here,
     settings,
@@ -149,5 +161,7 @@ class RunRecorderState {
     restored,
     meters,
     speedMps,
+    onSteps,
+    waiting,
   );
 }

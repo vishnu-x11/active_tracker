@@ -1,10 +1,6 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' hide PhoneCodeSent;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-import '../../domain/entities/phone_verification.dart';
-import '../models/auth_user_mapper.dart';
 
 abstract interface class AuthRemoteDataSource {
   Future<User> signInWithEmail(String email, String password);
@@ -12,18 +8,26 @@ abstract interface class AuthRemoteDataSource {
   Future<void> sendPasswordReset(String email);
 
   Future<User?> signInWithGoogle();
-  Future<PhoneVerification> sendPhoneCode(String phoneE164, {int? resendToken});
-  Future<User> verifyPhoneCode(String verificationId, String smsCode);
   Future<void> signOut();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  AuthRemoteDataSourceImpl(this._auth, this._google);
+  AuthRemoteDataSourceImpl(this._auth, this._google, {Future<FirebaseAuth> Function()? signUpAuth})
+    : _signUpAuth = signUpAuth ?? _separateAuth;
 
   final FirebaseAuth _auth;
   final GoogleSignIn _google;
+  final Future<FirebaseAuth> Function() _signUpAuth;
 
   static const googleServerClientId = '773988908810-g9edgsr32bj76ncpc545e0r29p54mfu5.apps.googleusercontent.com';
+  static const signUpAppName = 'sign_up';
+
+  static Future<FirebaseAuth> _separateAuth() async {
+    final app =
+        Firebase.apps.where((a) => a.name == signUpAppName).firstOrNull ??
+        await Firebase.initializeApp(name: signUpAppName, options: Firebase.app().options);
+    return FirebaseAuth.instanceFor(app: app);
+  }
 
   User _require(UserCredential c) => c.user ?? (throw StateError('Firebase returned no user'));
 
@@ -33,9 +37,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<void> createAccount({required String name, required String email, required String password}) async {
-    final user = _require(await _auth.createUserWithEmailAndPassword(email: email, password: password));
-    await user.updateDisplayName(name);
-    await _auth.signOut();
+    final auth = await _signUpAuth();
+    final user = _require(await auth.createUserWithEmailAndPassword(email: email, password: password));
+    try {
+      await user.updateDisplayName(name);
+    } finally {
+      await auth.signOut();
+    }
   }
 
   @override
@@ -49,43 +57,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final credential = GoogleAuthProvider.credential(accessToken: tokens.accessToken, idToken: tokens.idToken);
     return _require(await _auth.signInWithCredential(credential));
   }
-
-  @override
-  Future<PhoneVerification> sendPhoneCode(String phoneE164, {int? resendToken}) {
-    final result = Completer<PhoneVerification>();
-    void fail(Object e, [StackTrace? st]) {
-      if (!result.isCompleted) result.completeError(e, st);
-    }
-
-    _auth
-        .verifyPhoneNumber(
-          phoneNumber: phoneE164,
-          forceResendingToken: resendToken,
-          timeout: const Duration(seconds: 60),
-          verificationCompleted: (credential) async {
-            try {
-              final user = _require(await _auth.signInWithCredential(credential));
-              if (!result.isCompleted) result.complete(PhoneAutoVerified(user.toEntity()));
-            } catch (e, st) {
-              fail(e, st);
-            }
-          },
-          verificationFailed: fail,
-          codeSent: (verificationId, token) {
-            if (!result.isCompleted) {
-              result.complete(PhoneCodeSent(verificationId: verificationId, resendToken: token));
-            }
-          },
-          codeAutoRetrievalTimeout: (_) {},
-        )
-        .catchError(fail);
-    return result.future;
-  }
-
-  @override
-  Future<User> verifyPhoneCode(String verificationId, String smsCode) async => _require(
-    await _auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: verificationId, smsCode: smsCode)),
-  );
 
   @override
   Future<void> signOut() async {

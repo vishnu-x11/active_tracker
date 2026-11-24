@@ -52,11 +52,10 @@ class RunFormNotifier extends Notifier<RunFormState> {
     if (!ref.mounted) return;
     switch (result) {
       case Ok(value: final r?):
-        _originalDay = r.draft ? null : r.day;
+        _originalDay = r.day;
         state = state.copyWith(
           loading: false,
           source: r.source,
-          isDraft: r.draft,
           title: r.title,
           type: r.type,
           day: dateOnly(r.startedAt),
@@ -67,7 +66,7 @@ class RunFormNotifier extends Notifier<RunFormState> {
           effort: r.effort ?? 3,
           kcalText: r.kcalOverride?.toString() ?? '',
           elevationM: () => r.elevationM,
-          weightKg: r.draft ? null : r.weightKg,
+          weightKg: r.weightKg,
         );
       case Ok():
         state = state.copyWith(loading: false, error: () => 'This run no longer exists.');
@@ -100,17 +99,10 @@ class RunFormNotifier extends Notifier<RunFormState> {
     setTime(RunMetrics.clock(next < 60 ? 60 : next));
   }
 
-  Future<void> switchToManual() async {
-    if (!state.locked) return;
-    if (state.isDraft && id != null) await ref.read(deleteRunProvider)(id!);
-    if (!ref.mounted) return;
-    state = state.copyWith(source: RunSource.manual, isDraft: false, elevationM: () => null);
-  }
-
   Future<void> save() async {
     if (state.saving || state.loading) return;
     state = state.copyWith(showErrors: true, saving: true, error: () => null);
-    final keepId = state.locked || (id != null && !state.isDraft && _originalDay != null) ? id : null;
+    final keepId = state.locked || (id != null && _originalDay != null) ? id : null;
     final result = await ref.read(saveRunProvider)(
       id: keepId,
       title: state.title,

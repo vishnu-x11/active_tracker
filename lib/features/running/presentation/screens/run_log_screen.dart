@@ -17,12 +17,14 @@ import '../../domain/entities/run.dart';
 import '../../domain/use_cases/run_metrics.dart';
 import '../../running_routes.dart';
 import '../notifiers/run_form_notifier.dart';
+import '../widgets/location_gate.dart';
 import '../widgets/run_stat_grid.dart';
 
 class RunLogScreen extends ConsumerStatefulWidget {
-  const RunLogScreen({super.key, this.id});
+  const RunLogScreen({super.key, this.id, this.fromRecording = false});
 
   final String? id;
+  final bool fromRecording;
 
   @override
   ConsumerState<RunLogScreen> createState() => _RunLogScreenState();
@@ -62,7 +64,7 @@ class _RunLogScreenState extends ConsumerState<RunLogScreen> {
       _set(_time, s.timeText);
       _set(_pace, s.paceText);
       if (s.savedId != null && prev?.savedId == null) {
-        if (prev?.isDraft ?? false) {
+        if (widget.fromRecording) {
           context.pushReplacement(RunRoutes.justRecorded(s.savedId!));
         } else if (widget.id == null) {
           context.pushReplacement(RunRoutes.detail(s.savedId!));
@@ -71,7 +73,7 @@ class _RunLogScreenState extends ConsumerState<RunLogScreen> {
         }
       }
     });
-    final (loading, locked, isDraft) = ref.watch(provider.select((s) => (s.loading, s.locked, s.isDraft)));
+    final (loading, locked) = ref.watch(provider.select((s) => (s.loading, s.locked)));
     if (!_filled && !loading) {
       _filled = true;
       final s = ref.read(provider);
@@ -96,11 +98,9 @@ class _RunLogScreenState extends ConsumerState<RunLogScreen> {
                         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                         children: [
                           FormHeader(
-                            title: isDraft ? 'Save GPS run' : (widget.id == null ? 'Log run' : 'Edit run'),
+                            title: widget.fromRecording ? 'Save GPS run' : (widget.id == null ? 'Log run' : 'Edit run'),
                             onBack: () => context.pop(),
                           ),
-                          const SizedBox(height: 16),
-                          _SourceSwitch(id: widget.id),
                           const SizedBox(height: 16),
                           GlassField(
                             label: 'Title',
@@ -147,45 +147,6 @@ class _RunLogScreenState extends ConsumerState<RunLogScreen> {
   }
 }
 
-class _SourceSwitch extends ConsumerWidget {
-  const _SourceSwitch({required this.id});
-
-  final String? id;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final source = ref.watch(runFormProvider(id).select((s) => s.source));
-    return GlassSegmented<RunSource>(
-      options: const [(RunSource.gps, 'GPS recording'), (RunSource.manual, 'Enter manually')],
-      value: source,
-      onChanged: (v) async {
-        if (v == source) return;
-        if (v == RunSource.gps) {
-          unawaited(context.push(RunRoutes.record));
-          return;
-        }
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (c) => AlertDialog(
-            backgroundColor: c.palette.pageTop,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            title: Text('Enter this run manually?', style: AppText.title.copyWith(color: c.palette.text)),
-            content: Text(
-              'The GPS recording (route, distance and time) will be discarded.',
-              style: AppText.body.copyWith(color: c.palette.sub),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Keep GPS')),
-              TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Enter manually')),
-            ],
-          ),
-        );
-        if (ok ?? false) await ref.read(runFormProvider(id).notifier).switchToManual();
-      },
-    );
-  }
-}
-
 class _TypeSwitch extends ConsumerWidget {
   const _TypeSwitch({required this.id});
 
@@ -209,7 +170,9 @@ class _RecordShortcut extends StatelessWidget {
       radius: 24,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        onTap: () => context.push(RunRoutes.record),
+        onTap: () async {
+          if (await ensureRunLocation(context) && context.mounted) unawaited(context.push(RunRoutes.record));
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -476,8 +439,7 @@ class _GpsSummary extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
-            "Distance, time, pace, date and start come from the phone's GPS and are locked. "
-            'To type them yourself, switch to Enter manually.',
+            "Distance, time, pace, date and start come from the phone's GPS and are locked.",
             style: AppText.small.copyWith(color: p.sub),
           ),
         ),

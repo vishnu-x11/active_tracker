@@ -19,22 +19,4 @@ abstract final class AuthRules {
   }
 
   static String? name(String value) => value.trim().isEmpty ? 'Enter your name' : null;
-
-  static String? countryCode(String value) =>
-      RegExp(r'^\+\d{1,4}$').hasMatch(value.trim()) ? null : 'Use a code like +91';
-
-  static String? phoneNumber(String value) {
-    final digits = value.replaceAll(RegExp(r'[\s-]'), '');
-    if (digits.isEmpty) return 'Enter your phone number';
-    if (!RegExp(r'^\d{6,14}$').hasMatch(digits)) return 'Enter a valid phone number';
-    return null;
-  }
-
-  static String e164(String countryCode, String number) =>
-      '${countryCode.trim()}${number.replaceAll(RegExp(r'[\s-]'), '').replaceFirst(RegExp(r'^0+'), '')}';
-
-  static const codeLength = 6;
-
-  static String? smsCode(String value) =>
-      RegExp('^\\d{$codeLength}\$').hasMatch(value) ? null : 'Enter the $codeLength-digit code';
 }

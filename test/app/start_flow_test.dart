@@ -52,24 +52,14 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('signed out → login; phone path opens the number screen', (tester) async {
+  testWidgets('signed out → login offers email and Google, not phone', (tester) async {
     await pumpApp(tester);
     expect(find.text('Active Tracker'), findsOneWidget);
     uid.add(null);
     await settleWithIo(tester);
     expect(find.text('Welcome back'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Continue with phone'));
-    await tester.tap(find.text('Continue with phone'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sign in with phone'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField).at(1), '98765 43210');
-    await tester.tap(find.text('Send code'));
-    await settleWithIo(tester);
-    expect(find.text('Enter the code'), findsOneWidget);
-    expect(find.text('Resend code in 0:30'), findsOneWidget);
-    expect(auth.calls, ['sendCode +919876543210 -']);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with phone'), findsNothing);
   });
 
   testWidgets('new user → onboarding → burn target → Home', (tester) async {

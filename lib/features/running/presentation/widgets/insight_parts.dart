@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/formulas/formulas.dart';
 import '../../../../core/result.dart';
+import '../../../../core/sync/sync_controller.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/run_settings.dart';
@@ -13,6 +14,7 @@ import '../../running_routes.dart';
 import '../notifiers/run_recorder_notifier.dart';
 import '../providers.dart';
 import '../states/run_recorder_state.dart';
+import 'location_gate.dart';
 
 const zoneColors = [
   Color(0xFF8FA3B8),
@@ -83,6 +85,7 @@ Future<void> startSuggestedWorkout(BuildContext context, WidgetRef ref, Suggeste
       messenger.showSnackBar(SnackBar(content: Text(failure.message)));
       return;
     }
+    ref.read(syncControllerProvider.notifier).nudge();
   }
-  if (context.mounted) await context.push(RunRoutes.record);
+  if (context.mounted && await ensureRunLocation(context) && context.mounted) await context.push(RunRoutes.record);
 }

@@ -109,12 +109,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           busy: busy == LoginBusy.google,
           onPressed: busy == LoginBusy.none ? notifier.signInWithGoogle : null,
         ),
-        const SizedBox(height: 12),
-        MethodButton(
-          leading: Icon(Icons.phone_iphone_rounded, size: 20, color: p.text),
-          label: 'Continue with phone',
-          onPressed: busy == LoginBusy.none ? () => context.go(AuthRoutes.phone) : null,
-        ),
       ],
     );
   }

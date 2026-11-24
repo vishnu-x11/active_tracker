@@ -22,7 +22,14 @@ class DataRevision extends Notifier<int> {
 final remoteStoreProvider = Provider<RemoteStore>((ref) => FirestoreRemoteStore(FirebaseFirestore.instance));
 
 final syncEngineProvider = Provider<SyncEngine>(
-  (ref) => SyncEngine(ref.watch(appDatabaseProvider), ref.watch(remoteStoreProvider)),
+  (ref) => SyncEngine(
+    ref.watch(appDatabaseProvider),
+    ref.watch(remoteStoreProvider),
+    account: () {
+      final user = ref.read(firebaseAuthProvider).currentUser;
+      return (name: user?.displayName, email: user?.email);
+    },
+  ),
 );
 
 typedef SyncStatus = ({DateTime? lastSynced, String? error, bool running});
@@ -35,6 +42,8 @@ class SyncController extends Notifier<SyncStatus> {
   StreamSubscription<Object>? _net;
   AppLifecycleListener? _life;
   bool _started = false;
+  Future<void> _syncing = Future.value();
+  bool _clearing = false;
 
   static const debounce = Duration(seconds: 1);
   static const every = Duration(minutes: 2);
@@ -90,6 +99,8 @@ class SyncController extends Notifier<SyncStatus> {
     final uid = ref.read(currentUidProvider).value;
     if (uid == null) return;
     state = (lastSynced: state.lastSynced, error: null, running: true);
+    final done = Completer<void>();
+    _syncing = done.future;
     try {
       final report = await ref.read(syncEngineProvider).sync(uid);
       if (!ref.mounted) return;
@@ -98,6 +109,36 @@ class SyncController extends Notifier<SyncStatus> {
     } catch (e, st) {
       developer.log('Sync failed', error: e, stackTrace: st, name: 'sync');
       if (ref.mounted) state = (lastSynced: state.lastSynced, error: 'Not synced yet. Will retry.', running: false);
+    } finally {
+      done.complete();
     }
+  }
+
+  static const clearTimeout = Duration(seconds: 60);
+  static const clearFailed = "Couldn't clear your data. Check your connection and try again.";
+
+  Future<String?> clearAll() async {
+    final uid = ref.read(currentUidProvider).value;
+    if (uid == null) return 'You are signed out.';
+    if (_clearing) return null;
+    _clearing = true;
+    try {
+      while (state.running) {
+        await _syncing;
+        if (!ref.mounted) return null;
+      }
+      state = (lastSynced: state.lastSynced, error: null, running: true);
+      await ref.read(syncEngineProvider).clear(uid).timeout(clearTimeout);
+    } catch (e, st) {
+      developer.log('Clear data failed', error: e, stackTrace: st, name: 'sync');
+      if (ref.mounted) state = (lastSynced: state.lastSynced, error: null, running: false);
+      return clearFailed;
+    } finally {
+      _clearing = false;
+    }
+    if (!ref.mounted) return null;
+    state = (lastSynced: null, error: null, running: false);
+    ref.read(dataRevisionProvider.notifier).bump();
+    return null;
   }
 }

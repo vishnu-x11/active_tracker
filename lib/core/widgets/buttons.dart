@@ -5,12 +5,20 @@ import '../theme/app_theme.dart';
 import 'glass.dart';
 
 class GradientButton extends StatelessWidget {
-  const GradientButton({super.key, required this.label, required this.onPressed, this.trailing, this.busy = false});
+  const GradientButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.trailing,
+    this.busy = false,
+    this.height = 56,
+  });
 
   final String label;
   final VoidCallback? onPressed;
   final String? trailing;
   final bool busy;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +38,7 @@ class GradientButton extends StatelessWidget {
       style: AppText.body.copyWith(fontSize: 16, fontWeight: FontWeight.w600, color: enabled ? Colors.white : p.sub),
     );
     final content = SizedBox(
-      height: 56,
+      height: height,
       child: Center(
         child: busy
             ? const SizedBox.square(

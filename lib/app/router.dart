@@ -17,6 +17,7 @@ import '../features/running/running_api.dart';
 import '../features/home/home_routes.dart';
 import '../features/profile/presentation/notifiers/profile_notifier.dart';
 import '../features/profile/profile_routes.dart';
+import 'clear_data.dart';
 import 'log_sheet.dart';
 import 'session_redirect.dart';
 import 'shell.dart';
@@ -78,6 +79,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   Builder(
                     builder: (context) => ProfileAccountRow(
+                      icon: Icons.delete_sweep_outlined,
+                      title: 'Clear data',
+                      danger: true,
+                      onTap: () => clearData(context),
+                    ),
+                  ),
+                  Builder(
+                    builder: (context) => ProfileAccountRow(
                       icon: Icons.logout_rounded,
                       title: 'Sign out',
                       danger: true,
@@ -116,14 +125,16 @@ final List<LogOption> logOptions = [
     colors: Metric.burn,
     route: GymRoutes.newSession,
     live: false,
+    gate: null,
   ),
   (
     title: 'Run',
-    hint: 'Distance, time, pace',
-    icon: Icons.directions_run_rounded,
+    hint: 'Record with GPS',
+    icon: Icons.my_location_rounded,
     colors: Metric.run,
-    route: RunRoutes.newRun,
+    route: RunRoutes.record,
     live: false,
+    gate: ensureRunLocation,
   ),
   (
     title: 'Water',
@@ -132,6 +143,7 @@ final List<LogOption> logOptions = [
     colors: Metric.water,
     route: HydrationRoutes.water,
     live: false,
+    gate: null,
   ),
   (
     title: 'Protein',
@@ -140,13 +152,15 @@ final List<LogOption> logOptions = [
     colors: Metric.protein,
     route: ProteinRoutes.protein,
     live: false,
+    gate: null,
   ),
   (
-    title: 'Record run with GPS',
-    hint: 'Live distance, pace and route',
-    icon: Icons.my_location_rounded,
+    title: 'Enter run manually',
+    hint: 'Type in distance, time and pace',
+    icon: Icons.directions_run_rounded,
     colors: Metric.protein,
-    route: RunRoutes.record,
+    route: RunRoutes.newRun,
     live: true,
+    gate: null,
   ),
 ];

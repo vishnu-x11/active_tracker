@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/sync/sync_controller.dart';
 import '../data/data_sources/location_source.dart';
+import '../data/data_sources/step_source.dart';
 import '../data/data_sources/run_local_data_source.dart';
 import '../data/data_sources/speaker.dart';
 import '../data/data_sources/track_local_data_source.dart';
@@ -16,7 +17,6 @@ import '../domain/entities/run.dart';
 import '../domain/entities/run_analysis.dart';
 import '../domain/entities/track_point.dart';
 import '../domain/repositories/run_repository.dart';
-import '../domain/entities/recording.dart';
 import '../domain/repositories/recording_repository.dart';
 import '../domain/repositories/pace_zones_repository.dart';
 import '../domain/repositories/run_settings_repository.dart';
@@ -47,13 +47,14 @@ final runProvider = FutureProvider.autoDispose.family<Run?, String>((ref, id) as
 });
 
 final locationSourceProvider = Provider<LocationSource>((ref) => const GeolocatorLocationSource());
+final stepSourceProvider = Provider<StepSource>((ref) => const PedometerStepSource());
 
 final trackRepositoryProvider = Provider<TrackRepository>(
   (ref) => TrackRepositoryImpl(TrackLocalDataSourceImpl(ref.watch(appDatabaseProvider))),
 );
 
-final saveRunDraftProvider = Provider(
-  (ref) => SaveRunDraft(ref.watch(trackRepositoryProvider), newId: ref.watch(newIdProvider)),
+final saveRecordedRunProvider = Provider(
+  (ref) => SaveRecordedRun(ref.watch(trackRepositoryProvider), newId: ref.watch(newIdProvider)),
 );
 final getPersonalRecordsProvider = Provider((ref) => GetPersonalRecords(ref.watch(trackRepositoryProvider)));
 
@@ -85,10 +86,7 @@ final getUnfinishedRecordingProvider = Provider(
 );
 final saveRecordingProgressProvider = Provider((ref) => SaveRecordingProgress(ref.watch(recordingRepositoryProvider)));
 final clearRecordingProvider = Provider((ref) => ClearRecording(ref.watch(recordingRepositoryProvider)));
-
-final unfinishedRecordingProvider = FutureProvider.autoDispose<Recording?>(
-  (ref) async => (await ref.watch(getUnfinishedRecordingProvider)(now: ref.read(recorderClockProvider)())).valueOrNull,
-);
+final appendRawFixesProvider = Provider((ref) => AppendRawFixes(ref.watch(recordingRepositoryProvider)));
 
 final analyseRunsProvider = Provider((ref) => AnalyseRuns(ref.watch(trackRepositoryProvider)));
 

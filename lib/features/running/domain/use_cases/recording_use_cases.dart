@@ -1,4 +1,5 @@
 import '../../../../core/result.dart';
+import '../entities/raw_fix.dart';
 import '../entities/recording.dart';
 import '../repositories/recording_repository.dart';
 
@@ -6,12 +7,10 @@ class GetUnfinishedRecording {
   const GetUnfinishedRecording(this._repository);
   final RecordingRepository _repository;
 
-  static const maxAge = Duration(hours: 24);
-
-  Future<Result<Recording?>> call({required DateTime now}) async {
+  Future<Result<Recording?>> call() async {
     final result = await _repository.load();
     return switch (result) {
-      Ok(value: final r?) when r.points.isEmpty || now.difference(r.savedAt) > maxAge => _drop(),
+      Ok(value: final r?) when r.points.isEmpty => _drop(),
       _ => result,
     };
   }
@@ -34,4 +33,11 @@ class ClearRecording {
   final RecordingRepository _repository;
 
   Future<Result<void>> call() => _repository.clear();
+}
+
+class AppendRawFixes {
+  const AppendRawFixes(this._repository);
+  final RecordingRepository _repository;
+
+  Future<Result<void>> call(List<RawFix> fixes) => _repository.appendFixes(fixes);
 }

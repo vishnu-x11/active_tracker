@@ -88,4 +88,77 @@ void main() {
     expect(await upgraded.setting('run.zones'), isNull);
     expect(await upgraded.db.query(Tables.runAnalysis), isEmpty);
   });
+
+  test('upgrading from version 7 lets run settings and reminders sync, other settings stay local', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v7.db';
+    final fresh = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    await fresh.db.execute('DROP TABLE ${Tables.settings}');
+    await fresh.db.execute('CREATE TABLE ${Tables.settings} (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    await fresh.db.insert(Tables.settings, {'key': 'run.settings', 'value': '{"voice":false}'});
+    await fresh.db.insert(Tables.settings, {'key': 'sync.owner', 'value': 'u'});
+    await fresh.db.setVersion(7);
+    await fresh.close();
+
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    final rows = {for (final r in await upgraded.db.query(Tables.settings)) r['key']: r};
+    expect(rows['run.settings']!['synced'], 0);
+    expect(rows['run.settings']!['updated_at'], greaterThan(0));
+    expect(rows['sync.owner']!['synced'], 1);
+    expect(await upgraded.setting('run.settings'), '{"voice":false}');
+  });
+
+  test('upgrading from version 8 adds the GPS reading log and keeps existing runs', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v8.db';
+    final fresh = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    await fresh.db.execute('DROP TABLE ${Tables.runFixes}');
+    await fresh.db.insert(Tables.settings, {'key': 'sync.owner', 'value': 'u'});
+    await fresh.db.setVersion(8);
+    await fresh.close();
+
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    expect(await upgraded.db.query(Tables.runFixes), isEmpty);
+    expect(await upgraded.setting('sync.owner'), 'u');
+  });
+
+  test('upgrading from version 9 turns runs left unsaved after Finish into real runs that sync', () async {
+    final dir = await Directory.systemTemp.createTemp('at_db');
+    addTearDown(() => dir.delete(recursive: true));
+    final path = '${dir.path}/v9.db';
+    final fresh = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    Future<void> run(String id, {required int draft, int deleted = 0}) => fresh.db.insert(Tables.runs, {
+      'sync_id': id,
+      'day': '2026-11-24',
+      'started_at': 0,
+      'title': 'Morning Run',
+      'run_type': 'outdoor',
+      'source': 'gps',
+      'distance_m': 3650,
+      'moving_sec': 1047,
+      'weight_kg': 75,
+      'kcal': 280,
+      'updated_at': 1,
+      'synced': 1,
+      'draft': draft,
+      'deleted': deleted,
+    });
+    await run('left', draft: 1);
+    await run('discarded', draft: 1, deleted: 1);
+    await run('saved', draft: 0);
+    await fresh.db.setVersion(9);
+    await fresh.close();
+
+    final upgraded = await AppDatabase.open(path: path, factory: databaseFactoryFfi);
+    addTearDown(upgraded.close);
+    final rows = {for (final r in await upgraded.db.query(Tables.runs)) r['sync_id']: r};
+    expect(rows['left']!['draft'], 0);
+    expect(rows['left']!['synced'], 0);
+    expect(rows['discarded']!['draft'], 1);
+    expect(rows['saved']!['synced'], 1);
+  });
 }
