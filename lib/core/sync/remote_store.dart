@@ -10,6 +10,10 @@ abstract interface class RemoteStore {
   Future<void> putUser(String uid, Map<String, Object?> data);
 
   Future<void> delete(String uid, String collection, String id);
+
+  Future<List<String>> ids(String uid, String collection);
+
+  Future<void> wipe(String uid, String collection);
 }
 
 class FirestoreRemoteStore implements RemoteStore {
@@ -18,6 +22,7 @@ class FirestoreRemoteStore implements RemoteStore {
   final FirebaseFirestore _db;
 
   static const _page = 400;
+  static const _server = GetOptions(source: Source.server);
 
   CollectionReference<Map<String, dynamic>> _col(String uid, String collection) =>
       _db.collection('users').doc(uid).collection(collection);
@@ -32,6 +37,24 @@ class FirestoreRemoteStore implements RemoteStore {
 
   @override
   Future<void> delete(String uid, String collection, String id) => _col(uid, collection).doc(id).delete();
+
+  @override
+  Future<List<String>> ids(String uid, String collection) async => [
+    for (final d in (await _col(uid, collection).get(_server)).docs) d.id,
+  ];
+
+  @override
+  Future<void> wipe(String uid, String collection) async {
+    while (true) {
+      final snap = await _col(uid, collection).limit(_page).get(_server);
+      if (snap.docs.isEmpty) return;
+      final batch = _db.batch();
+      for (final d in snap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    }
+  }
 
   @override
   Future<Map<String, Object?>?> get(String uid, String collection, String id) async =>

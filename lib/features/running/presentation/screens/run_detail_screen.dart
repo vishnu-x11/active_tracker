@@ -134,12 +134,12 @@ class _Body extends ConsumerWidget {
         header,
         if (gps)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: RunMapHeader(run: r),
           ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            padding: EdgeInsets.fromLTRB(16, gps ? 4 : 16, 16, 32),
             children: [
               Text(r.title, style: AppText.display.copyWith(color: p.text)),
               const SizedBox(height: 4),

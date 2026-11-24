@@ -22,6 +22,9 @@ import '../states/activity_view.dart';
 class ActivityScreen extends ConsumerWidget {
   const ActivityScreen({super.key});
 
+  static const listGap = 6.0;
+  static const listFade = 20.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(activityViewProvider);
@@ -31,12 +34,14 @@ class ActivityScreen extends ConsumerWidget {
     ];
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          const SliverPadding(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate.fixed([
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 _Header(),
                 SizedBox(height: 16),
                 _StripCard(),
@@ -44,49 +49,66 @@ class ActivityScreen extends ConsumerWidget {
                 _Filter(),
                 SizedBox(height: 14),
                 _Tiles(),
-                SizedBox(height: 8),
-              ]),
+              ],
             ),
           ),
-          if (view.hasError)
-            SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  view.error is Failure ? (view.error! as Failure).message : "Couldn't load your workouts.",
-                  style: AppText.small.copyWith(color: context.palette.danger),
-                ),
-              ),
-            )
-          else if (view.hasValue && groups.isEmpty)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: _Empty(title: view.value!.emptyTitle, hint: view.value!.emptyHint),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList.builder(
-                itemCount: rows.length,
-                itemBuilder: (context, i) => switch (rows[i]) {
-                  final ActivityGroup g => _GroupHeader(key: ValueKey('h${g.day}'), group: g),
-                  final ActivityItem a => Padding(
-                    key: ValueKey(a.id),
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ActivityTile(
-                      item: a,
-                      detailed: true,
-                      onTap: () =>
-                          context.push(a.type == ActivityType.gym ? GymRoutes.detail(a.id) : RunRoutes.detail(a.id)),
+          const SizedBox(height: listGap),
+          Expanded(
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (bounds) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: const [Colors.transparent, Colors.black],
+                stops: [0, bounds.height == 0 ? 0 : (listFade / bounds.height).clamp(0.0, 1.0)],
+              ).createShader(bounds),
+              child: CustomScrollView(
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: listFade)),
+                  if (view.hasError)
+                    SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverToBoxAdapter(
+                        child: Text(
+                          view.error is Failure ? (view.error! as Failure).message : "Couldn't load your workouts.",
+                          style: AppText.small.copyWith(color: context.palette.danger),
+                        ),
+                      ),
+                    )
+                  else if (view.hasValue && groups.isEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _Empty(title: view.value!.emptyTitle, hint: view.value!.emptyHint),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList.builder(
+                        itemCount: rows.length,
+                        itemBuilder: (context, i) => switch (rows[i]) {
+                          final ActivityGroup g => _GroupHeader(key: ValueKey('h${g.day}'), group: g),
+                          final ActivityItem a => Padding(
+                            key: ValueKey(a.id),
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ActivityTile(
+                              item: a,
+                              detailed: true,
+                              onTap: () => context.push(
+                                a.type == ActivityType.gym ? GymRoutes.detail(a.id) : RunRoutes.detail(a.id),
+                              ),
+                            ),
+                          ),
+                          _ => const SizedBox.shrink(),
+                        },
+                      ),
                     ),
-                  ),
-                  _ => const SizedBox.shrink(),
-                },
+                  const SliverToBoxAdapter(child: SizedBox(height: tabBarInset)),
+                ],
               ),
             ),
-          const SliverToBoxAdapter(child: SizedBox(height: tabBarInset)),
+          ),
         ],
       ),
     );

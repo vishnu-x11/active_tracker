@@ -33,6 +33,12 @@ class FakeRemote implements RemoteStore {
   Future<Map<String, Object?>?> get(String uid, String collection, String id) async => docs['$uid/$collection']?[id];
 
   @override
+  Future<List<String>> ids(String uid, String collection) async => [...?docs['$uid/$collection']?.keys];
+
+  @override
+  Future<void> wipe(String uid, String collection) async => docs.remove('$uid/$collection');
+
+  @override
   Future<List<Map<String, Object?>>> changedSince(String uid, String collection, int since) async =>
       ((docs['$uid/$collection'] ?? {}).values.where((d) => (d['updated_at']! as num) > since).toList()
         ..sort((a, b) => (a['updated_at']! as num).compareTo(b['updated_at']! as num)));

@@ -21,10 +21,11 @@ final runBreakdownProvider = Provider.autoDispose.family<RunBreakdown, String>(
 );
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
+  const _Section({required this.title, required this.children, this.action});
 
   final String title;
   final List<Widget> children;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -34,7 +35,14 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: AppText.title.copyWith(color: context.palette.text)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(title, style: AppText.title.copyWith(color: context.palette.text)),
+              ),
+              ?action,
+            ],
+          ),
           const SizedBox(height: 14),
           ...children,
         ],
@@ -97,55 +105,58 @@ class RunResultsSection extends ConsumerWidget {
       child: Column(
         children: [
           Text(label, style: AppText.small.copyWith(color: p.sub)),
-          const SizedBox(height: 2),
-          Text('$n', style: AppText.display.copyWith(fontSize: 24, color: p.text)),
+          Text('$n', style: AppText.display.copyWith(fontSize: 20, color: p.text)),
         ],
       ),
     );
     return _Section(
       title: 'Results',
+      action: TextButton(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: () => context.push(RunRoutes.records),
+        child: Text(
+          'View all results',
+          style: AppText.small.copyWith(fontWeight: FontWeight.w700, color: Metric.burnDot),
+        ),
+      ),
       children: [
         Row(children: [count('Best efforts', results.length), count('Achievements', achievements)]),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         for (final r in results)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 5),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                MedalBadge(rank: r.rank <= 3 ? r.rank : null, size: 40),
-                const SizedBox(width: 14),
+                MedalBadge(rank: r.rank <= 3 ? r.rank : null, size: 34),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(r.effort.label, style: AppText.cardTitle.copyWith(color: p.text)),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${raceClock(r.seconds)}    ${paceText(r.seconds / (r.effort.meters / 1000))}',
-                        style: AppText.body.copyWith(color: p.text),
-                      ),
-                      if (r.rank <= 3)
-                        Text(
-                          standing(r.rank, fresh: justRecorded),
-                          style: AppText.small.copyWith(color: p.sub),
+                      Text.rich(
+                        TextSpan(
+                          text: '${raceClock(r.seconds)}  ·  ${paceText(r.seconds / (r.effort.meters / 1000))}',
+                          style: AppText.body.copyWith(color: p.text),
+                          children: [
+                            if (r.rank <= 3)
+                              TextSpan(
+                                text: '  ·  ${standing(r.rank, fresh: justRecorded)}',
+                                style: AppText.small.copyWith(color: p.sub),
+                              ),
+                          ],
                         ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () => context.push(RunRoutes.records),
-            child: Text(
-              'View all results',
-              style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: Metric.burnDot),
-            ),
-          ),
-        ),
       ],
     );
   }

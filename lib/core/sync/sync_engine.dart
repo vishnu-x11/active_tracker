@@ -72,6 +72,25 @@ class SyncEngine {
     }
   }
 
+  static const logs = [Tables.runs, Tables.gymSessions, Tables.water, Tables.protein];
+
+  Future<void> clear(String uid) async {
+    await _claim(uid);
+    for (final id in await _remote.ids(uid, Tables.runs)) {
+      await _remote.wipe(uid, routeCollection(id));
+      await _remote.wipe(uid, fixesCollection(id));
+    }
+    for (final collection in logs) {
+      await _remote.wipe(uid, collection);
+    }
+    await _db.transaction((txn) async {
+      for (final t in [...logs, Tables.runPoints, Tables.runAnalysis]) {
+        await txn.delete(t);
+      }
+      await txn.delete(Tables.runFixes, where: 'run_sync_id != ?', whereArgs: [AppDatabase.recordingFixesId]);
+    });
+  }
+
   Future<bool> restoreProfile(String uid) async {
     await _claim(uid);
     final docs = await _remote.changedSince(uid, Tables.profile, 0);

@@ -17,6 +17,7 @@ import '../features/running/running_api.dart';
 import '../features/home/home_routes.dart';
 import '../features/profile/presentation/notifiers/profile_notifier.dart';
 import '../features/profile/profile_routes.dart';
+import 'clear_data.dart';
 import 'log_sheet.dart';
 import 'session_redirect.dart';
 import 'shell.dart';
@@ -74,6 +75,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                       icon: Icons.notifications_none_rounded,
                       title: 'Reminders',
                       onTap: () => context.push(ReminderRoutes.reminders),
+                    ),
+                  ),
+                  Builder(
+                    builder: (context) => ProfileAccountRow(
+                      icon: Icons.delete_sweep_outlined,
+                      title: 'Clear data',
+                      danger: true,
+                      onTap: () => clearData(context),
                     ),
                   ),
                   Builder(

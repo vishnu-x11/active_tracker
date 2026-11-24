@@ -123,6 +123,6 @@ void main() {
     expect(find.text('Results'), findsOneWidget);
     expect(find.text('1K'), findsOneWidget);
     expect(find.text('400m'), findsOneWidget);
-    expect(find.text('Best of all time!'), findsNWidgets(2));
+    expect(find.textContaining('Best of all time!'), findsNWidgets(2));
   });
 }
