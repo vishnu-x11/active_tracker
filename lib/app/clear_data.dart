@@ -15,6 +15,7 @@ Future<bool> confirmClearData(BuildContext context) async =>
       cancel: 'Cancel',
       confirm: 'Clear',
       danger: true,
+      confirmFirst: true,
     ) ??
     false;
 

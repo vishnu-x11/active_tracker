@@ -13,12 +13,39 @@ Future<bool?> showAppDialog(
   bool danger = false,
   bool dismissible = true,
   bool closable = false,
+  bool confirmFirst = false,
 }) => showDialog<bool>(
   context: context,
   barrierDismissible: dismissible,
   builder: (c) {
     final p = c.palette;
     final accent = danger ? p.danger : Metric.cta.last;
+    final cancelButton = Expanded(
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          foregroundColor: p.text,
+          side: BorderSide(color: p.hair),
+          shape: const StadiumBorder(),
+        ),
+        onPressed: () => Navigator.pop(c, false),
+        child: FittedBox(fit: BoxFit.scaleDown, child: Text(cancel, maxLines: 1)),
+      ),
+    );
+    final confirmButton = Expanded(
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          backgroundColor: accent,
+          foregroundColor: Colors.white,
+          shape: const StadiumBorder(),
+        ),
+        onPressed: () => Navigator.pop(c, true),
+        child: FittedBox(fit: BoxFit.scaleDown, child: Text(confirm, maxLines: 1)),
+      ),
+    );
     return AlertDialog(
       backgroundColor: p.pageTop,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -60,35 +87,9 @@ Future<bool?> showAppDialog(
       actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
       actions: [
         Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  foregroundColor: p.text,
-                  side: BorderSide(color: p.hair),
-                  shape: const StadiumBorder(),
-                ),
-                onPressed: () => Navigator.pop(c, false),
-                child: FittedBox(fit: BoxFit.scaleDown, child: Text(cancel, maxLines: 1)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  backgroundColor: accent,
-                  foregroundColor: Colors.white,
-                  shape: const StadiumBorder(),
-                ),
-                onPressed: () => Navigator.pop(c, true),
-                child: FittedBox(fit: BoxFit.scaleDown, child: Text(confirm, maxLines: 1)),
-              ),
-            ),
-          ],
+          children: confirmFirst
+              ? [confirmButton, const SizedBox(width: 10), cancelButton]
+              : [cancelButton, const SizedBox(width: 10), confirmButton],
         ),
       ],
     );
